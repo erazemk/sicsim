@@ -16,8 +16,8 @@ func main() {
 	m := sim.Machine{}
 	m.New()
 
-	m.Regs.SetA(10)
-	m.Regs.SetReg(1, 128)
+	m.SetA(10)
+	m.SetReg(1, 128)
 
 	fmt.Println(m.Registers())
 }

@@ -1,7 +1,8 @@
 package sim
 
-// TODO: Maybe convert these into constants so they can be referenced as types
-type Registers struct {
+import "fmt"
+
+type registers struct {
 	a  int
 	x  int
 	l  int
@@ -21,161 +22,171 @@ const (
 )
 
 // Reg returns the value of register reg
-func (r Registers) Reg(reg int) int {
+func (m Machine) Reg(reg int) int {
 	switch reg {
 	case 0:
-		return r.a
+		return m.regs.a
 	case 1:
-		return r.x
+		return m.regs.x
 	case 2:
-		return r.l
+		return m.regs.l
 	case 3:
-		return r.b
+		return m.regs.b
 	case 4:
-		return r.s
+		return m.regs.s
 	case 5:
-		return r.t
+		return m.regs.t
 	case 6:
-		return r.f
+		return m.regs.f
 	case 8:
-		return r.pc
+		return m.regs.pc
 	case 9:
-		return r.sw
+		return m.regs.sw
 	}
 
 	return -1
 }
 
 // SetReg sets the value of register reg
-func (r *Registers) SetReg(reg, val int) {
+func (m *Machine) SetReg(reg, val int) {
 	if reg >= 0 && reg <= 6 && isWord(val) {
 		switch reg {
 		case 0:
-			r.a = val
+			m.regs.a = val
 		case 1:
-			r.x = val
+			m.regs.x = val
 		case 2:
-			r.l = val
+			m.regs.l = val
 		case 3:
-			r.b = val
+			m.regs.b = val
 		case 4:
-			r.s = val
+			m.regs.s = val
 		case 5:
-			r.t = val
+			m.regs.t = val
 		case 6:
-			r.f = val
+			m.regs.f = val
 		case 8:
-			r.pc = val
+			m.regs.pc = val
 		case 9:
-			r.sw = val
+			m.regs.sw = val
 		}
 	}
 }
 
 // A returns the value of
-func (r Registers) A() int {
-	return r.a
+func (m Machine) A() int {
+	return m.regs.a
 }
 
 // X returns the value of the X register
-func (r Registers) X() int {
-	return r.x
+func (m Machine) X() int {
+	return m.regs.x
 }
 
 // L returns the value of the L register
-func (r Registers) L() int {
-	return r.l
+func (m Machine) L() int {
+	return m.regs.l
 }
 
 // B returns the value of the B register
-func (r Registers) B() int {
-	return r.b
+func (m Machine) B() int {
+	return m.regs.b
 }
 
 // S returns the value of the S register
-func (r Registers) S() int {
-	return r.s
+func (m Machine) S() int {
+	return m.regs.s
 }
 
 // T returns the value of the T register
-func (r Registers) T() int {
-	return r.t
+func (m Machine) T() int {
+	return m.regs.t
 }
 
 // F returns the value of the F register
-func (r Registers) F() int {
-	return r.f
+func (m Machine) F() int {
+	return m.regs.f
 }
 
 // PC returns the value of the PC register
-func (r Registers) PC() int {
-	return r.pc
+func (m Machine) PC() int {
+	return m.regs.pc
 }
 
 // SW returns the value of the SW register
-func (r Registers) SW() int {
-	return r.sw
+func (m Machine) SW() int {
+	return m.regs.sw
 }
 
 // SetA sets the value of the A register
-func (r *Registers) SetA(val int) {
+func (m *Machine) SetA(val int) {
 	if isWord(val) {
-		r.a = val
+		m.regs.a = val
 	}
 }
 
 // SetX sets the value of the X register
-func (r *Registers) SetX(val int) {
+func (m *Machine) SetX(val int) {
 	if isWord(val) {
-		r.x = val
+		m.regs.x = val
 	}
 }
 
 // SetL sets the value of the L register
-func (r *Registers) SetL(val int) {
+func (m *Machine) SetL(val int) {
 	if isWord(val) {
-		r.l = val
+		m.regs.l = val
 	}
 }
 
 // SetB sets the value of the B register
-func (r *Registers) SetB(val int) {
+func (m *Machine) SetB(val int) {
 	if isWord(val) {
-		r.b = val
+		m.regs.b = val
 	}
 }
 
 // SetS sets the value of the S register
-func (r *Registers) SetS(val int) {
+func (m *Machine) SetS(val int) {
 	if isWord(val) {
-		r.s = val
+		m.regs.s = val
 	}
 }
 
 // SetT sets the value of the T register
-func (r *Registers) SetT(val int) {
+func (m *Machine) SetT(val int) {
 	if isWord(val) {
-		r.t = val
+		m.regs.t = val
 	}
 }
 
 // SetF sets the value of the F register
-func (r *Registers) SetF(val int) {
+func (m *Machine) SetF(val int) {
 	if isWord(val) {
-		r.f = val
+		m.regs.f = val
 	}
 }
 
 // SetPC sets the value of the PC register
-func (r *Registers) SetPC(val int) {
+func (m *Machine) SetPC(val int) {
 	if isWord(val) {
-		r.pc = val
+		m.regs.pc = val
 	}
 }
 
 // SetSW sets the value of the SW register
-func (r *Registers) SetSW(val int) {
+func (m *Machine) SetSW(val int) {
 	if isWord(val) {
-		r.sw = val
+		m.regs.sw = val
 	}
+}
+
+// Print outputs the machine's register state
+func (m *Machine) Registers() string {
+	return fmt.Sprintf(
+		"A:  %06X (Dec: %d)\nX:  %06X (Dec: %d)\nL:  %06X (Dec: %d)\nB:  %06X (Dec: %d)\nS:  %06X (Dec: %d)\n"+
+			"T:  %06X (Dec: %d)\nF:  %06X (Dec: %d)\nSP: %06X (Dec: %d)\nSW: %06X (Dec: %d)",
+		m.regs.a, m.regs.a, m.regs.x, m.regs.x, m.regs.l, m.regs.l, m.regs.b, m.regs.b,
+		m.regs.s, m.regs.s, m.regs.t, m.regs.t, m.regs.f, m.regs.f, m.regs.pc, m.regs.pc,
+		m.regs.sw, m.regs.sw)
 }

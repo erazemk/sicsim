@@ -2,14 +2,13 @@ package sim
 
 import (
 	"encoding/binary"
-	"fmt"
 	"log"
 )
 
 const MAX_ADDRESS = 1048576
 
 type Machine struct {
-	Regs Registers // TODO: Figure out what to do with registers
+	regs registers // TODO: Figure out what to do with registers
 	mem  [MAX_ADDRESS + 1]byte
 	Devs [256]Device
 }
@@ -97,14 +96,4 @@ func (m *Machine) Device(num int) Device {
 	}
 
 	return Device{}
-}
-
-// Print outputs the machine's register state
-func (m *Machine) Registers() string {
-	return fmt.Sprintf(
-		"A:  %06X (Dec: %d)\nX:  %06X (Dec: %d)\nL:  %06X (Dec: %d)\nB:  %06X (Dec: %d)\nS:  %06X (Dec: %d)\n"+
-			"T:  %06X (Dec: %d)\nF:  %06X (Dec: %d)\nSP: %06X (Dec: %d)\nSW: %06X (Dec: %d)",
-		m.Regs.A(), m.Regs.A(), m.Regs.X(), m.Regs.X(), m.Regs.L(), m.Regs.L(), m.Regs.B(), m.Regs.B(),
-		m.Regs.S(), m.Regs.S(), m.Regs.T(), m.Regs.T(), m.Regs.F(), m.Regs.F(), m.Regs.PC(), m.Regs.PC(),
-		m.Regs.SW(), m.Regs.SW())
 }
