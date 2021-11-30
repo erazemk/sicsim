@@ -86,11 +86,11 @@ func isFloat(val float64) bool {
 }
 
 // isAddr checks if addr is a valid SIC address
-func isAddr(addr int) bool {
+func isAddr(addr uint32) bool {
 	return addr >= 0 && addr <= MAX_ADDRESS
 }
 
 // isDevice check if dev is a valid SIC device
-func isDevice(dev int) bool {
+func isDevice(dev byte) bool {
 	return dev >= 0 && dev <= 255
 }

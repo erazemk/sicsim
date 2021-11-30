@@ -9,12 +9,12 @@ type registers struct {
 	b  int
 	s  int
 	t  int
-	f  int
+	f  float64
 	pc int
 	sw int
 }
 
-// TODO: do something with SW values
+// SW register values
 const (
 	LT = 0x00
 	EQ = 0x40
@@ -37,7 +37,7 @@ func (m Machine) Reg(reg int) int {
 	case 5:
 		return m.regs.t
 	case 6:
-		return m.regs.f
+		return int(m.regs.f) // TODO: Fix this shit
 	case 8:
 		return m.regs.pc
 	case 9:
@@ -64,7 +64,7 @@ func (m *Machine) SetReg(reg, val int) {
 		case 5:
 			m.regs.t = val
 		case 6:
-			m.regs.f = val
+			m.regs.f = float64(val) // TODO: Fix this shit
 		case 8:
 			m.regs.pc = val
 		case 9:
@@ -104,7 +104,7 @@ func (m Machine) T() int {
 }
 
 // F returns the value of the F register
-func (m Machine) F() int {
+func (m Machine) F() float64 {
 	return m.regs.f
 }
 
@@ -161,8 +161,8 @@ func (m *Machine) SetT(val int) {
 }
 
 // SetF sets the value of the F register
-func (m *Machine) SetF(val int) {
-	if isWord(val) {
+func (m *Machine) SetF(val float64) {
+	if isFloat(val) {
 		m.regs.f = val
 	}
 }

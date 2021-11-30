@@ -8,12 +8,12 @@ import (
 )
 
 type Device struct {
-	devno   int
+	devno   byte
 	devfile string
 }
 
 // New creates a new device with and identifier and device type
-func (d *Device) New(devno int) {
+func (d *Device) New(devno byte) {
 	if isDevice(devno) {
 		switch devno {
 		case 0:
