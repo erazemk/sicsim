@@ -1,7 +1,6 @@
 package sim
 
 import (
-	"math"
 	"os"
 )
 
@@ -76,21 +75,16 @@ func init() {
 }
 
 // isWord checks if val is a valid SIC word (24 bits)
-func isWord(val int) bool {
-	return val > 0 && float64(val) < math.Pow(2, 24)
+func isWord(word []byte) bool {
+	return len(word) == 3
 }
 
 // isFloat check if val is a valid SIC float (48 bits)
-func isFloat(val float64) bool {
-	return val > 0 && val < math.Pow(2, 48)
+func isFloat(float []byte) bool {
+	return len(float) == 6
 }
 
 // isAddr checks if addr is a valid SIC address
 func isAddr(addr uint32) bool {
 	return addr >= 0 && addr <= MAX_ADDRESS
-}
-
-// isDevice check if dev is a valid SIC device
-func isDevice(dev byte) bool {
-	return dev >= 0 && dev <= 255
 }
