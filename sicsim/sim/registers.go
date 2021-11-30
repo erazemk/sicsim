@@ -3,15 +3,15 @@ package sim
 import "fmt"
 
 type registers struct {
-	a  int
-	x  int
-	l  int
-	b  int
-	s  int
-	t  int
-	f  float64
-	pc int
-	sw int
+	a  [3]byte
+	x  [3]byte
+	l  [3]byte
+	b  [3]byte
+	s  [3]byte
+	t  [3]byte
+	f  [6]byte
+	pc [3]byte
+	sw [1]byte
 }
 
 // SW register values
@@ -22,162 +22,166 @@ const (
 )
 
 // Reg returns the value of register reg
-func (m Machine) Reg(reg int) int {
+func (m Machine) Reg(reg int) ([]byte, error) {
 	switch reg {
 	case 0:
-		return m.regs.a
+		return m.regs.a[:], nil
 	case 1:
-		return m.regs.x
+		return m.regs.x[:], nil
 	case 2:
-		return m.regs.l
+		return m.regs.l[:], nil
 	case 3:
-		return m.regs.b
+		return m.regs.b[:], nil
 	case 4:
-		return m.regs.s
+		return m.regs.s[:], nil
 	case 5:
-		return m.regs.t
+		return m.regs.t[:], nil
 	case 6:
-		return int(m.regs.f) // TODO: Fix this shit
+		return m.regs.f[:], nil
 	case 8:
-		return m.regs.pc
+		return m.regs.pc[:], nil
 	case 9:
-		return m.regs.sw
+		return m.regs.sw[:], nil
 	}
 
-	return -1
+	return nil, fmt.Errorf("Not a valid register: %d", reg)
 }
 
 // SetReg sets the value of register reg
-func (m *Machine) SetReg(reg, val int) {
-	if reg >= 0 && reg <= 6 && isWord(val) {
-		switch reg {
-		case 0:
-			m.regs.a = val
-		case 1:
-			m.regs.x = val
-		case 2:
-			m.regs.l = val
-		case 3:
-			m.regs.b = val
-		case 4:
-			m.regs.s = val
-		case 5:
-			m.regs.t = val
-		case 6:
-			m.regs.f = float64(val) // TODO: Fix this shit
-		case 8:
-			m.regs.pc = val
-		case 9:
-			m.regs.sw = val
-		}
+func (m *Machine) SetReg(reg int, val []byte) error {
+	if !isRegister(reg) {
+		return fmt.Errorf("Not a valid register: %d", reg)
 	}
+
+	switch reg {
+	case 0:
+		copy(m.regs.a[:], val)
+	case 1:
+		copy(m.regs.x[:], val)
+	case 2:
+		copy(m.regs.l[:], val)
+	case 3:
+		copy(m.regs.b[:], val)
+	case 4:
+		copy(m.regs.s[:], val)
+	case 5:
+		copy(m.regs.t[:], val)
+	case 6:
+		copy(m.regs.f[:], val)
+	case 8:
+		copy(m.regs.pc[:], val)
+	case 9:
+		copy(m.regs.sw[:], val)
+	}
+
+	return nil
 }
 
 // A returns the value of
-func (m Machine) A() int {
+func (m Machine) A() [3]byte {
 	return m.regs.a
 }
 
 // X returns the value of the X register
-func (m Machine) X() int {
+func (m Machine) X() [3]byte {
 	return m.regs.x
 }
 
 // L returns the value of the L register
-func (m Machine) L() int {
+func (m Machine) L() [3]byte {
 	return m.regs.l
 }
 
 // B returns the value of the B register
-func (m Machine) B() int {
+func (m Machine) B() [3]byte {
 	return m.regs.b
 }
 
 // S returns the value of the S register
-func (m Machine) S() int {
+func (m Machine) S() [3]byte {
 	return m.regs.s
 }
 
 // T returns the value of the T register
-func (m Machine) T() int {
+func (m Machine) T() [3]byte {
 	return m.regs.t
 }
 
 // F returns the value of the F register
-func (m Machine) F() float64 {
+func (m Machine) F() [6]byte {
 	return m.regs.f
 }
 
 // PC returns the value of the PC register
-func (m Machine) PC() int {
+func (m Machine) PC() [3]byte {
 	return m.regs.pc
 }
 
 // SW returns the value of the SW register
-func (m Machine) SW() int {
+func (m Machine) SW() [1]byte {
 	return m.regs.sw
 }
 
 // SetA sets the value of the A register
-func (m *Machine) SetA(val int) {
+func (m *Machine) SetA(val []byte) {
 	if isWord(val) {
-		m.regs.a = val
+		copy(m.regs.a[:], val)
 	}
 }
 
 // SetX sets the value of the X register
-func (m *Machine) SetX(val int) {
+func (m *Machine) SetX(val []byte) {
 	if isWord(val) {
-		m.regs.x = val
+		copy(m.regs.x[:], val)
 	}
 }
 
 // SetL sets the value of the L register
-func (m *Machine) SetL(val int) {
+func (m *Machine) SetL(val []byte) {
 	if isWord(val) {
-		m.regs.l = val
+		copy(m.regs.l[:], val)
 	}
 }
 
 // SetB sets the value of the B register
-func (m *Machine) SetB(val int) {
+func (m *Machine) SetB(val []byte) {
 	if isWord(val) {
-		m.regs.b = val
+		copy(m.regs.b[:], val)
 	}
 }
 
 // SetS sets the value of the S register
-func (m *Machine) SetS(val int) {
+func (m *Machine) SetS(val []byte) {
 	if isWord(val) {
-		m.regs.s = val
+		copy(m.regs.s[:], val)
 	}
 }
 
 // SetT sets the value of the T register
-func (m *Machine) SetT(val int) {
+func (m *Machine) SetT(val []byte) {
 	if isWord(val) {
-		m.regs.t = val
+		copy(m.regs.t[:], val)
 	}
 }
 
 // SetF sets the value of the F register
-func (m *Machine) SetF(val float64) {
+func (m *Machine) SetF(val []byte) {
 	if isFloat(val) {
-		m.regs.f = val
+		copy(m.regs.f[:], val)
 	}
 }
 
 // SetPC sets the value of the PC register
-func (m *Machine) SetPC(val int) {
+func (m *Machine) SetPC(val []byte) {
 	if isWord(val) {
-		m.regs.pc = val
+		copy(m.regs.pc[:], val)
 	}
 }
 
 // SetSW sets the value of the SW register
-func (m *Machine) SetSW(val int) {
+func (m *Machine) SetSW(val []byte) {
 	if isWord(val) {
-		m.regs.sw = val
+		copy(m.regs.sw[:], val)
 	}
 }
 
