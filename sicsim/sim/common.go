@@ -88,3 +88,8 @@ func isFloat(float []byte) bool {
 func isAddr(addr uint32) bool {
 	return addr >= 0 && addr <= MAX_ADDRESS
 }
+
+// isRegister checks if reg is a valid SIC register
+func isRegister(reg int) bool {
+	return (reg >= 0 && reg <= 6) || (reg == 8 || reg == 9)
+}
