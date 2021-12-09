@@ -1,20 +1,22 @@
 package sim
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"fmt"
+)
 
 // Fetch returns a byte from m[PC] and increments PC
 func (m *Machine) Fetch() byte {
 	addr := m.PC()
-	val := m.mem[addr]
 	m.SetPC(addr + 1)
-	return val
+	return m.mem[addr]
 }
 
 // Execute tries to execute fetched operation
 func (m *Machine) Execute() {
 	opcode := m.Fetch()
 
-	if m.execF1(opcode) {
+	if m.execF1(opcode) == nil {
 		return
 	}
 
@@ -22,7 +24,7 @@ func (m *Machine) Execute() {
 	op1 := int(operands & 0x0F)
 	op2 := int((operands & 0xF0) >> 4)
 
-	if m.execF2(opcode, op1, op2) {
+	if m.execF2(opcode, op1, op2) == nil {
 		return
 	}
 
@@ -36,39 +38,62 @@ func (m *Machine) Execute() {
 
 	opcode = opcode >> 2
 
-	if m.execSICF3F4(opcode, operands, n, i) {
+	if m.execSICF3F4(opcode, operands, n, i) == nil {
 		return
 	}
 }
 
 // execF1 tries to execute opcode as format 1
-func (m *Machine) execF1(opcode byte) bool {
+func (m *Machine) execF1(opcode byte) error {
 	switch opcode {
-	case FIX:
-		m.SetA(int(m.F()))
-	case FLOAT:
-		m.SetF(float64(m.A()))
-	case HIO: // TODO: ustavi I/O - haltio(A)
-	case NORM: // TODO: normalizacija floata (popravljanje mantise) - F <- norm(F)
-	case SIO: // TODO: štartaj I/O - startio(A, S)
-	case TIO: // TODO: testiraj I/O - testio(A)
+	case FIX: // Not implemented
+	case FLOAT: // Not implemented
+	case HIO: // Not implemented
+	case NORM: // Not implemented
+	case SIO: // Not implemented
+	case TIO: // Not implemented
 	default:
-		return false
+		return fmt.Errorf("command not implemented: %b", opcode)
 	}
 
-	return false
+	return nil
 }
 
 // execF2 tries to execute opcode as format 2
-func (m *Machine) execF2(opcode byte, op1, op2 int) bool {
+func (m *Machine) execF2(opcode byte, op1, op2 int) error {
 	switch opcode {
 	case ADDR:
-		m.SetReg(op2, m.Reg(op1)+m.Reg(op2))
+		val1, err := m.Reg(op1)
+
+		if err != nil {
+			return err
+		}
+
+		val2, err := m.Reg(op2)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetReg(op2, val1+val2)
 	case CLEAR:
-		m.SetReg(op1, 0)
+		err := m.SetReg(op1, 0)
+
+		if err != nil {
+			return err
+		}
 	case COMPR:
-		r1 := m.Reg(op1)
-		r2 := m.Reg(op2)
+		r1, err := m.Reg(op1)
+
+		if err != nil {
+			return err
+		}
+
+		r2, err := m.Reg(op2)
+
+		if err != nil {
+			return err
+		}
 
 		switch {
 		case r1 < r2:
@@ -79,49 +104,70 @@ func (m *Machine) execF2(opcode byte, op1, op2 int) bool {
 			m.SetSW(GT)
 		}
 	case DIVR:
-		m.SetReg(op2, op2/op1)
+		err := m.SetReg(op2, op2/op1)
+
+		if err != nil {
+			return err
+		}
 	case MULR:
-		m.SetReg(op2, op2*op1)
+		err := m.SetReg(op2, op2*op1)
+
+		if err != nil {
+			return err
+		}
 	case RMO:
-		m.SetReg(op2, op1)
+		err := m.SetReg(op2, op1)
+
+		if err != nil {
+			return err
+		}
 	case SHIFTL:
-		m.SetReg(op1, op1<<op2)
+		err := m.SetReg(op1, op1<<op2)
+
+		if err != nil {
+			return err
+		}
 	case SHIFTR:
-		m.SetReg(op1, op1>>op2)
+		err := m.SetReg(op1, op1>>op2)
+
+		if err != nil {
+			return err
+		}
 	case SUBR:
-		m.SetReg(op2, op2-op1)
-	case SVC:
-		// TODO: throwi error not implemented
+		err := m.SetReg(op2, op2-op1)
+
+		if err != nil {
+			return err
+		}
+	case SVC: // Not implemented
 	case TIXR:
+		if !isRegister(op1) {
+			return fmt.Errorf("not a valid register: %d", op1)
+		}
+
 		m.SetX(m.X() + 1)
 
 		switch {
 		case m.X() < op1:
 			m.SetSW(LT)
-		case m.X() == op2:
+		case m.X() == op1:
 			m.SetSW(EQ)
-		case m.X() > op2:
+		case m.X() > op1:
 			m.SetSW(GT)
 		}
 	default:
-		return false
+		return fmt.Errorf("command not implemented: %b", opcode)
 	}
 
-	return false
+	return nil
 }
 
-func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) bool {
-	x := false
-	b, p, e := false, false, false
-	var address, offset uint32 = 0, 0
+func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) error {
+	var x, b, p, e bool
+	var addr, offset, operand, target_address int
 
 	if ((operands & 0x80) >> 7) == 1 {
 		x = true
-	}
-
-	if !(n || i) {
-		// Address is 0 + lower 7 bits from operands + 8 new bits, which are fetched
-		address = binary.BigEndian.Uint32([]byte{operands & 0x7F, m.Fetch()})
 	}
 
 	if ((operands & 0x40) >> 6) == 1 {
@@ -134,135 +180,360 @@ func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) bool {
 		e = true
 	}
 
-	// Differentiate between Format 3 and 4
-	if !e { // Format 3
+	// Differentiate between formats
+	if !(n || i) { // SIC format
+		// Address is 0 + lower 7 bits from operands + 8 new bits, which are fetched
+		addr = int(binary.BigEndian.Uint32([]byte{operands & 0x7F, m.Fetch()}))
+	} else if !e { // Format 3
 		// Offset is lower 4 bits from operands + 8 new bits, which are fetched
-		offset = binary.BigEndian.Uint32([]byte{operands & 0x0F, m.Fetch()})
+		offset = int(binary.BigEndian.Uint32([]byte{operands & 0x0F, m.Fetch()}))
 	} else { // Format 4
 		// Address is lower 4 bits from operands + 16 new bits, which are fetched
-		address = binary.BigEndian.Uint32([]byte{operands & 0x0F, m.Fetch(), m.Fetch()})
+		addr = int(binary.BigEndian.Uint32([]byte{operands & 0x0F, m.Fetch(), m.Fetch()}))
+	}
+
+	// Addressing type
+	switch {
+	case b && !p: // Base-relative
+		target_address = m.B() + offset
+	case !b && p: // PC-relative
+		target_address = m.PC() + offset
+	case !b && !p: // Direct
+		target_address = addr
+	case b && p: // Disallowed
+		return fmt.Errorf("wrong addressing format")
+	}
+
+	if x {
+		target_address = target_address + m.X()
+	}
+
+	switch {
+	case n && !i: // Indirect
+		l1, err := m.Word(target_address)
+
+		if err != nil {
+			return err
+		}
+
+		operand, err = m.Word(l1)
+
+		if err != nil {
+			return err
+		}
+	case !n && i: // Immediate
+		operand = target_address
+	case n && i: // Simple
+		var err error
+		operand, err = m.Word(target_address)
+
+		if err != nil {
+			return err
+		}
+	case !n && !i: // SIC format
+		operand = target_address
 	}
 
 	switch opcode {
 	case ADD:
-		m.SetA(m.A() + m.Word(address))
-	case ADDF:
-		m.SetF(m.F() + m.Float(address))
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetA(m.A() + word)
+	case ADDF: // Not implemented
 	case AND:
-		m.SetA(m.A() & m.Word(address))
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetA(m.A() & word)
 	case COMP:
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
 		switch {
-		case m.A() < m.Word(address):
+		case m.A() < word:
 			m.SetSW(LT)
-		case m.A() == m.Word(address):
+		case m.A() == word:
 			m.SetSW(EQ)
-		case m.A() > m.Word(address):
+		case m.A() > word:
 			m.SetSW(GT)
 		}
-	case COMPF:
-		switch {
-		case m.F() < m.Float(address):
-			m.SetSW(LT)
-		case m.F() == m.Float(address):
-			m.SetSW(EQ)
-		case m.F() > m.Float(address):
-			m.SetSW(GT)
-		}
+	case COMPF: // Not implemented
 	case DIV:
-		m.SetA(m.A() / m.Word(address))
-	case DIVF:
-		m.SetF(m.F() / m.Float(address))
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetA(m.A() / word)
+	case DIVF: // Not implemented
 	case J:
-		m.SetPC(m.Word(address))
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetPC(word)
 	case JEQ:
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
 		if m.SW() == EQ {
-			m.SetPC(m.Word(address))
+			m.SetPC(word)
 		}
 	case JGT:
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
 		if m.SW() == GT {
-			m.SetPC(m.Word(address))
+			m.SetPC(word)
 		}
 	case JLT:
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
 		if m.SW() == LT {
-			m.SetPC(m.Word(address))
+			m.SetPC(word)
 		}
 	case JSUB:
-		m.SetL(m.Word(uint32(m.PC()))) // TODO: Conversion shouldn't need to be used
-		m.SetPC(m.Word(address))
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetL(m.PC())
+		m.SetPC(word)
 	case LDA:
-		m.SetA(m.Word(address))
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetA(word)
 	case LDB:
-		m.SetB(m.Word(address))
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetB(word)
 	case LDCH:
-		// TODO: Fixi da bo dejansko spremenilo samo spodnjih 8 bitov
-		ch := binary.BigEndian.Uint32([]byte{0x00, 0x00, 0x00, m.Byte(address)})
-		m.SetA(int(ch))
+		low, err := m.Byte(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetALow(low)
 	case LDF:
-		m.SetF(m.Float(address))
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetF(word)
 	case LDL:
-		m.SetL(m.Word(address))
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetL(word)
 	case LDS:
-		m.SetS(m.Word(address))
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetS(word)
 	case LDT:
-		m.SetT(m.Word(address))
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetT(word)
 	case LDX:
-		m.SetX(m.Word(address))
-	case LPS:
-		// TODO: throwi error not implemented
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetX(word)
+	case LPS: // Not implemented
 	case MUL:
-		m.SetA(m.A() * m.Word(address))
-	case MULF:
-		m.SetF(m.F() * m.Float(address))
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetA(m.A() * word)
+	case MULF: // Not implemented
 	case OR:
-		m.SetA(m.A() | m.Word(address))
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetA(m.A() | word)
 	case RD:
-		// TODO: Dodaj branje iz naprave
+		devno, err := m.Byte(operand)
+
+		if err != nil {
+			return err
+		}
+
+		dev := m.Dev(devno)
+		text, err := dev.Read()
+
+		if err != nil {
+			return err
+		}
+
+		m.SetALow(text)
 	case RSUB:
 		m.SetPC(m.L())
-	case SSK:
-		// TODO: throwi error not implemented
+	case SSK: // Not implemented
 	case STA:
-		m.SetWord(address, m.A())
+		err := m.SetWord(operand, m.A())
+
+		if err != nil {
+			return err
+		}
 	case STB:
-		m.SetWord(address, m.B())
+		err := m.SetWord(operand, m.B())
+
+		if err != nil {
+			return err
+		}
 	case STCH:
-		m.SetWord(address, m.A()&0x000F)
+		err := m.SetByte(operand, m.ALow())
+
+		if err != nil {
+			return err
+		}
 	case STF:
-		m.SetFloat(address, m.F())
-	case STI:
-		// TODO: throwi error not implemented
+		err := m.SetWord(operand, m.F())
+
+		if err != nil {
+			return err
+		}
+	case STI: // Not implemented
 	case STL:
-		m.SetWord(address, m.L())
+		err := m.SetWord(operand, m.L())
+
+		if err != nil {
+			return err
+		}
 	case STS:
-		m.SetWord(address, m.S())
+		err := m.SetWord(operand, m.S())
+
+		if err != nil {
+			return err
+		}
 	case STSW:
-		m.SetWord(address, m.SW())
+		err := m.SetWord(operand, m.SW())
+
+		if err != nil {
+			return err
+		}
 	case STT:
-		m.SetWord(address, m.T())
+		err := m.SetWord(operand, m.T())
+
+		if err != nil {
+			return err
+		}
 	case STX:
-		m.SetWord(address, m.X())
+		err := m.SetWord(operand, m.X())
+
+		if err != nil {
+			return err
+		}
 	case SUB:
-		m.SetA(m.A() - m.Word(address))
-	case SUBF:
-		m.SetF(m.F() - m.Float(address))
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
+		m.SetA(m.A() - word)
+	case SUBF: // Not implemented
 	case TD:
-		// TODO: Implementiri test device
+		devno, err := m.Byte(operand)
+
+		if err != nil {
+			return err
+		}
+
+		dev := m.Dev(devno)
+		err = dev.Test()
+
+		if err != nil {
+			return err
+		}
 	case TIX:
 		m.SetX(m.X() + 1)
+
+		word, err := m.Word(operand)
+
+		if err != nil {
+			return err
+		}
+
 		switch {
-		case m.X() < m.Word(address):
+		case m.X() < word:
 			m.SetSW(LT)
-		case m.X() == m.Word(address):
+		case m.X() == word:
 			m.SetSW(EQ)
-		case m.X() > m.Word(address):
+		case m.X() > word:
 			m.SetSW(GT)
 		}
 	case WD:
-		// TODO: Implementiri write device
-		m.Devs[m.Word(address)].Write(byte(m.A()))
+		devno, err := m.Byte(operand)
+
+		if err != nil {
+			return err
+		}
+
+		dev := m.Dev(devno)
+		err = dev.Write(m.ALow())
+
+		if err != nil {
+			return err
+		}
 	default:
-		return false
+		return fmt.Errorf("command not implemented: %b", opcode)
 	}
 
-	return false
+	return nil
 }
