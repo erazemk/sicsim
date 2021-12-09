@@ -48,17 +48,32 @@ func (m *Machine) Dev(devno byte) *device {
 	return dev
 }
 
+// Test checks if a device is opened for reading/writing
+func (d *device) Test() error {
+	if d.devfile == nil {
+		file, err := os.Open(fmt.Sprintf("%x.dev", d.devno))
+		d.devfile = file
+
+		if err != nil {
+			return fmt.Errorf("failed to open device for writing: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // Read reads a byte from device
 func (d *device) Read() (byte, error) {
 	var file *os.File
 
 	if d.devfile == nil {
 		file, err := os.Open(d.devname)
-		defer file.Close()
 
 		if err != nil {
-			return 0, fmt.Errorf("Failed to open device for reading: %w", err)
+			return 0, fmt.Errorf("failed to open device for reading: %w", err)
 		}
+
+		defer file.Close()
 	}
 
 	val := make([]byte, 1)
@@ -66,7 +81,7 @@ func (d *device) Read() (byte, error) {
 	_, err := file.Read(val)
 
 	if err != nil {
-		return 0, fmt.Errorf("Failed to read from device: %w", err)
+		return 0, fmt.Errorf("failed to read from device: %w", err)
 	}
 
 	if debug {
@@ -82,17 +97,18 @@ func (d *device) Write(val byte) error {
 
 	if d.devfile == nil {
 		file, err := os.Open(fmt.Sprintf("%x.dev", d.devno))
-		defer file.Close()
 
 		if err != nil {
-			return fmt.Errorf("Failed to open device for writing: %w", err)
+			return fmt.Errorf("failed to open device for writing: %w", err)
 		}
+
+		defer file.Close()
 	}
 
 	_, err := file.Write([]byte{val})
 
 	if err != nil {
-		return fmt.Errorf("Failed to write to device: %w", err)
+		return fmt.Errorf("failed to write to device: %w", err)
 	}
 
 	if debug {
