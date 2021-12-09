@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-// Fetch returns a byte from m[PC] and increments PC
-func (m *Machine) Fetch() byte {
+// fetch returns a byte from m[PC] and increments PC
+func (m *Machine) fetch() byte {
 	addr := m.PC()
 	m.SetPC(addr + 1)
 	return m.mem[addr]
@@ -14,13 +14,13 @@ func (m *Machine) Fetch() byte {
 
 // Execute tries to execute fetched operation
 func (m *Machine) Execute() {
-	opcode := m.Fetch()
+	opcode := m.fetch()
 
 	if m.execF1(opcode) == nil {
 		return
 	}
 
-	operands := m.Fetch()
+	operands := m.fetch()
 	op1 := int(operands & 0x0F)
 	op2 := int((operands & 0xF0) >> 4)
 
@@ -162,6 +162,7 @@ func (m *Machine) execF2(opcode byte, op1, op2 int) error {
 	return nil
 }
 
+// execSICF3F4 tries to execute opcode either in SIC format, format 3 or format 4
 func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) error {
 	var x, b, p, e bool
 	var addr, offset, operand, target_address int
@@ -183,13 +184,13 @@ func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) error {
 	// Differentiate between formats
 	if !(n || i) { // SIC format
 		// Address is 0 + lower 7 bits from operands + 8 new bits, which are fetched
-		addr = int(binary.BigEndian.Uint32([]byte{operands & 0x7F, m.Fetch()}))
+		addr = int(binary.BigEndian.Uint32([]byte{operands & 0x7F, m.fetch()}))
 	} else if !e { // Format 3
 		// Offset is lower 4 bits from operands + 8 new bits, which are fetched
-		offset = int(binary.BigEndian.Uint32([]byte{operands & 0x0F, m.Fetch()}))
+		offset = int(binary.BigEndian.Uint32([]byte{operands & 0x0F, m.fetch()}))
 	} else { // Format 4
 		// Address is lower 4 bits from operands + 16 new bits, which are fetched
-		addr = int(binary.BigEndian.Uint32([]byte{operands & 0x0F, m.Fetch(), m.Fetch()}))
+		addr = int(binary.BigEndian.Uint32([]byte{operands & 0x0F, m.fetch(), m.fetch()}))
 	}
 
 	// Addressing type
