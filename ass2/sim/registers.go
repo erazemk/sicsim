@@ -1,4 +1,4 @@
-package sim
+package sicsim
 
 import (
 	"encoding/binary"
