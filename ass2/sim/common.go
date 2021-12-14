@@ -1,11 +1,10 @@
 package sicsim
 
 import (
+	"fmt"
 	"math"
 	"os"
 )
-
-var debug bool
 
 // Opcodes
 const (
@@ -88,4 +87,12 @@ func isAddr(addr int) bool {
 // isRegister checks if reg is a valid SIC register
 func isRegister(reg int) bool {
 	return (reg >= 0 && reg <= 6) || (reg == 8 || reg == 9)
+}
+
+func printWord(val int) string {
+	return fmt.Sprintf("0x%[1]X - %[1]d (%[1]b)", val)
+}
+
+func printByte(val byte) string {
+	return fmt.Sprintf("0x%[1]X - %[1]d (%[1]b)", val)
 }
