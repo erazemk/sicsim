@@ -3,6 +3,7 @@ package sicsim
 import (
 	"encoding/binary"
 	"fmt"
+	"strings"
 )
 
 // Byte returns the byte at m[addr]
@@ -57,5 +58,14 @@ func (m *Machine) SetWord(addr, val int) error {
 
 // Mem prints the content of the memory from startAddr to endAddr
 func (m *Machine) Mem(startAddr, endAddr int) string {
-	return fmt.Sprintf("%v", m.mem[startAddr:endAddr])
+	var sb strings.Builder
+
+	sb.WriteString("[" + fmt.Sprintf("%02X", m.mem[startAddr]))
+
+	for _, val := range m.mem[startAddr+1 : endAddr] {
+		sb.WriteString(fmt.Sprintf(" %02X", val))
+	}
+
+	sb.WriteString("]")
+	return sb.String()
 }
