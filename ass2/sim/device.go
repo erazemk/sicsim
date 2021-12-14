@@ -1,118 +1,97 @@
 package sicsim
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"os"
 )
 
 type device struct {
-	devno   byte
-	devname string
-	devfile *os.File
+	num   byte
+	name  string
+	infd  *os.File
+	outfd *os.File
 }
 
-// New creates a new device
-func (d *device) New(devno byte) {
-	d.devno = devno
+// NewDevice creates a new device
+func newDevice(id byte) (*device, error) {
+	var err error
+	dev := device{num: id}
 
-	switch devno {
+	switch id {
 	case 0:
-		d.devname = "stdin"
-		d.devfile = os.Stdin
+		dev.name = "stdin"
+		dev.infd = os.Stdin
 	case 1:
-		d.devname = "stdout"
-		d.devfile = os.Stdout
+		dev.name = "stdout"
+		dev.outfd = os.Stdout
 	case 2:
-		d.devname = "stderr"
-		d.devfile = os.Stderr
+		dev.name = "stderr"
+		dev.outfd = os.Stderr
 	default:
-		d.devname = fmt.Sprintf("%x.dev", d.devno)
-		d.devfile = nil
+		dev.name = fmt.Sprintf("%02X.dev", dev.num)
+		dev.infd, err = os.OpenFile(dev.name, os.O_APPEND|os.O_CREATE|os.O_RDONLY, 0644)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to create input device: %w", err)
+		}
+
+		dev.outfd, err = os.OpenFile(dev.name, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to create output device: %w", err)
+		}
 	}
 
 	if debug {
-		log.Println("Created a new device:", d.devname)
+		log.Println("Added new device:", dev.name)
 	}
+
+	return &dev, nil
 }
 
-// Dev returns a device with the id devno
-func (m *Machine) Dev(devno byte) *device {
-	dev := m.devs[devno]
-
-	if dev == nil {
-		dev.New(devno)
-		m.devs[devno] = dev
-	}
-
-	return dev
+// test checks if a device is available for reading or writing
+func (d *device) test() bool {
+	return d.infd != nil || d.outfd != nil
 }
 
-// Test checks if a device is opened for reading/writing
-func (d *device) Test() error {
-	if d.devfile == nil {
-		file, err := os.Open(fmt.Sprintf("%x.dev", d.devno))
-		d.devfile = file
-
-		if err != nil {
-			return fmt.Errorf("failed to open device for writing: %w", err)
-		}
+// read reads a byte from device
+func (d *device) read() (byte, error) {
+	if d.infd == nil {
+		return 0, fmt.Errorf("failed to open device '%s' for reading", d.name)
 	}
 
-	return nil
-}
-
-// Read reads a byte from device
-func (d *device) Read() (byte, error) {
-	var file *os.File
-
-	if d.devfile == nil {
-		file, err := os.Open(d.devname)
-
-		if err != nil {
-			return 0, fmt.Errorf("failed to open device for reading: %w", err)
-		}
-
-		defer file.Close()
-	}
-
-	val := make([]byte, 1)
-
-	_, err := file.Read(val)
+	r := bufio.NewReader(d.infd)
+	val, err := r.ReadByte()
 
 	if err != nil {
-		return 0, fmt.Errorf("failed to read from device: %w", err)
+		return val, fmt.Errorf("failed to read from device '%s': %w", d.name, err)
 	}
 
 	if debug {
-		log.Printf("Read byte from device %s: %b [%c]\n", d.devname, val[0], val[0])
+		log.Printf("Read byte '%c' from device '%s'\n", val, d.name)
 	}
 
-	return val[0], nil
+	return val, nil
 }
 
-// Write writes a byte to device
-func (d *device) Write(val byte) error {
-	var file *os.File
-
-	if d.devfile == nil {
-		file, err := os.Open(fmt.Sprintf("%x.dev", d.devno))
-
-		if err != nil {
-			return fmt.Errorf("failed to open device for writing: %w", err)
-		}
-
-		defer file.Close()
+// write writes a byte to device
+func (d *device) write(val byte) error {
+	if d.outfd == nil {
+		return fmt.Errorf("failed to open device '%s' for writing", d.name)
 	}
 
-	_, err := file.Write([]byte{val})
+	w := bufio.NewWriter(d.outfd)
+	err := w.WriteByte(val)
+	w.Flush()
 
 	if err != nil {
-		return fmt.Errorf("failed to write to device: %w", err)
+		return fmt.Errorf("failed to write to device '%s': %w", d.name, err)
 	}
 
 	if debug {
-		log.Printf("Wrote byte to device %s: %b [%c]\n", d.devname, val, val)
+		log.Printf("Wrote byte '%c' to device '%s'\n", val, d.name)
 	}
 
 	return nil
