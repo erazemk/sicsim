@@ -1,42 +1,172 @@
 package sicsim
 
 import (
+	"bufio"
 	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 	"os"
+	"strconv"
 )
 
-// ReadString reads and returns a string of length len from file
-func ReadString(file *os.File, len int) (string, error) {
-	bytes := make([]byte, len)
-	n, err := file.Read(bytes)
+// ParseByte parses and returns a byte from two characters
+func ParseByte(text string) byte {
+	bytes, err := hex.DecodeString(text)
 
 	if err != nil {
-		return "", err
+		panic(err)
 	}
 
-	return string(bytes[:n]), nil
+	return bytes[0]
 }
 
-// ReadByte reads and returns a byte from file
-func ReadByte(file *os.File) (byte, error) {
+// ParseWord parses and returs a word from six characters
+func ParseWord(text string) int {
+	hex, err := hex.DecodeString(text)
+
+	if err != nil {
+		panic(err)
+	}
+
 	bytes := make([]byte, 1)
-	_, err := file.Read(bytes)
+	bytes = append(bytes, hex[0], hex[1], hex[2])
 
-	if err != nil {
-		return 0, err
-	}
-
-	return bytes[0], nil
+	return int(binary.BigEndian.Uint32(bytes))
 }
 
-// ReadWord reads and returns a word from file
-func ReadWord(file *os.File) (int, error) {
-	bytes := make([]byte, 3)
-	_, err := file.Read(bytes)
+// ParseObj splits an object file into sections and calls appropriate functions
+func (m *Machine) ParseObj(path string) error {
+	file, err := os.Open(path)
 
 	if err != nil {
-		return 0, err
+		return fmt.Errorf("failed to parse object file: %w", err)
 	}
 
-	return int(binary.BigEndian.Uint32(bytes)), nil
+	scanner := bufio.NewScanner(file)
+
+	// Split object file, each line/section is a separate element
+	scanner.Split(bufio.ScanLines)
+	var sections []string
+
+	for scanner.Scan() {
+		sections = append(sections, scanner.Text())
+	}
+
+	file.Close()
+
+	var lc int = 0 // Loader Counter - keeps track of current memory location
+
+	if debug {
+		fmt.Println("--- Start ParseObj ---")
+	}
+
+	// Parse each section
+	for _, line := range sections {
+		record := line[0:1]
+
+		switch record {
+		case "H": // Header
+			progName := line[1:7]
+			codeAddr := ParseWord(line[7:13])
+			codeLen := ParseWord(line[13:19])
+			lc = codeAddr // Start writing commands to memory[codeAddr]
+
+			if err != nil {
+				panic(err)
+			}
+
+			if debug {
+				fmt.Println("[Header]")
+				fmt.Println("    name: " + progName)
+				fmt.Println("    addr: " + printWord(codeAddr))
+				fmt.Println("    len: " + printWord(codeLen))
+				fmt.Println("    lc: " + strconv.FormatInt(int64(lc), 10))
+			}
+		case "E": // End
+			startAddr := ParseWord(line[1:7])
+
+			if debug {
+				fmt.Println("[End]")
+				fmt.Println("    start addr: " + printWord(startAddr))
+				fmt.Println("    lc: " + strconv.FormatInt(int64(lc), 10))
+			}
+
+			m.SetPC(startAddr) // Start executing commands at memory[startAddr]
+		case "T": // Text (code)
+			codeAddr := ParseWord(line[1:7])
+			codeLen := ParseByte(line[7:9])
+			code := line[9:]
+
+			if debug {
+				fmt.Println("[Text]")
+				fmt.Println("    addr: " + printWord(codeAddr))
+				fmt.Println("    len: " + printByte(codeLen))
+				fmt.Println("    code: " + code)
+				fmt.Println("    lc: " + strconv.FormatInt(int64(lc), 10))
+			}
+
+			// 1 byte = 2 chars, 1 word = 3 bytes = 6 chars
+			// len = 9 => 18 chars = 3 words => 3 * 6 chars
+			for i := 0; i < int(codeLen)/3; i++ {
+				word := ParseWord(code[i*6 : i*6+6]) // Send 6 chars at a time
+
+				if debug {
+					fmt.Printf("        word: %06X\n", word)
+				}
+
+				m.SetWord(lc, word)
+				lc += 3 // Increment lc by 3 bytes each iteration
+			}
+		case "M": // Modification
+			offset := line[1:7]
+			lineLen := line[7:9]
+			longVer := len(line) > 9
+			var operator, symbolName string
+
+			if longVer {
+				operator = line[9:10]
+				symbolName = line[10:16]
+			}
+
+			if debug {
+				fmt.Println("[Modification]")
+				fmt.Println("    offset: " + offset)
+				fmt.Println("    len: " + lineLen)
+				fmt.Println("    lc: " + strconv.FormatInt(int64(lc), 10))
+
+				if longVer {
+					fmt.Println("    operator: " + operator)
+					fmt.Println("    symbol name: " + symbolName)
+				}
+			}
+		case "D": // Exported symbol
+			name := line[1:7]
+			value := line[7:13]
+			pairs := line[13:]
+
+			if debug {
+				fmt.Println("[Symbol export]")
+				fmt.Println("    name: " + name)
+				fmt.Println("    value: " + value)
+				fmt.Println("    pairs: " + pairs)
+				fmt.Println("    lc: " + strconv.FormatInt(int64(lc), 10))
+			}
+		case "R": // Imported symbol
+			name := line[1:7]
+			otherNames := line[7:]
+
+			if debug {
+				fmt.Println("[Symbol import]")
+				fmt.Println("    name: " + name)
+				fmt.Println("    other names: " + otherNames)
+				fmt.Println("    lc: " + strconv.FormatInt(int64(lc), 10))
+			}
+		}
+	}
+
+	if debug {
+		fmt.Println("--- End ParseObj ---")
+	}
+
+	return nil
 }
