@@ -45,8 +45,6 @@ func (m *Machine) SetWord(addr, val int) error {
 		buf := make([]byte, 4)
 		binary.BigEndian.PutUint32(buf, uint32(val))
 
-		fmt.Printf("Buf: %[1]v\n", buf)
-
 		// buf[0] == MSB, which is too big for SIC words, so it isn't used
 		m.mem[addr] = buf[1]
 		m.mem[addr+1] = buf[2]
