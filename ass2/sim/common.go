@@ -6,6 +6,8 @@ import (
 	"os"
 )
 
+var debug bool
+
 // Opcodes
 const (
 	ADD    byte = 0x18
@@ -72,6 +74,10 @@ const (
 func init() {
 	// Functions print logs if debug is true
 	_, debug = os.LookupEnv("SICSIM_DEBUG")
+}
+
+func SetDebug(debugFlag bool) {
+	debug = debugFlag
 }
 
 // isWord checks if val is a valid SIC word (24 bits)
