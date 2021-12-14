@@ -414,14 +414,13 @@ func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) error {
 			return err
 		}
 
-		dev := m.Dev(devno)
-		text, err := dev.Read()
+		char, err := m.ReadDevice(devno)
 
 		if err != nil {
 			return err
 		}
 
-		m.SetALow(text)
+		m.SetALow(char)
 	case RSUB:
 		m.SetPC(m.L())
 	case SSK: // Not implemented
@@ -496,11 +495,8 @@ func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) error {
 			return err
 		}
 
-		dev := m.Dev(devno)
-		err = dev.Test()
-
-		if err != nil {
-			return err
+		if !m.TestDevice(devno) {
+			return fmt.Errorf("device test failed")
 		}
 	case TIX:
 		m.SetX(m.X() + 1)
@@ -526,8 +522,7 @@ func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) error {
 			return err
 		}
 
-		dev := m.Dev(devno)
-		err = dev.Write(m.ALow())
+		err = m.WriteDevice(devno, m.ALow())
 
 		if err != nil {
 			return err
