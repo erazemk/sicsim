@@ -16,7 +16,9 @@ func (m *Machine) fetch() byte {
 func (m *Machine) Execute() {
 	opcode := m.fetch()
 
-	fmt.Printf("Opcode [b]: 0x%02X\n", opcode)
+	if debug {
+		fmt.Printf("Opcode [b]: 0x%02X\n", opcode)
+	}
 
 	if m.execF1(opcode) == nil {
 		return
@@ -31,17 +33,20 @@ func (m *Machine) Execute() {
 	}
 
 	n, i := false, false
-	if (opcode & 0x02) == 1 {
+	if (opcode & 0x02) == 0x02 {
 		n = true
 	}
-	if (opcode & 0x01) == 1 {
+	if (opcode & 0x01) == 0x01 {
 		i = true
 	}
 
 	// opcode is only 6-bit for SIC/F3/F4 instruction formats
 	opcode = opcode & 0xFC
 
-	fmt.Printf("Opcode [a]: 0x%02X\n", opcode)
+	if debug {
+		fmt.Printf("N=%v, I=%v\n", n, i)
+		fmt.Printf("Opcode [a]: 0x%02X\n", opcode)
+	}
 
 	// operands = xbpe bits + part of address/offset
 	if m.execSICF3F4(opcode, operands, n, i) == nil {
@@ -53,6 +58,10 @@ func (m *Machine) Execute() {
 
 // execF1 tries to execute opcode as format 1
 func (m *Machine) execF1(opcode byte) error {
+	if debug {
+		fmt.Println("[Format 1]")
+	}
+
 	switch opcode {
 	case FIX: // Not implemented
 	case FLOAT: // Not implemented
@@ -69,6 +78,10 @@ func (m *Machine) execF1(opcode byte) error {
 
 // execF2 tries to execute opcode as format 2
 func (m *Machine) execF2(opcode byte, op1, op2 int) error {
+	if debug {
+		fmt.Println("[Format 2]")
+	}
+
 	switch opcode {
 	case ADDR:
 		val1, err := m.Reg(op1)
@@ -217,6 +230,10 @@ func (m *Machine) execF2(opcode byte, op1, op2 int) error {
 
 // execSICF3F4 tries to execute opcode either in SIC format, format 3 or format 4
 func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) error {
+	if debug {
+		fmt.Println("[Format 3]")
+	}
+
 	var x, b, p, e bool
 	var operand, target_address int
 
@@ -246,6 +263,11 @@ func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) error {
 	} else { // Format 4
 		// addr = lower 4 bits from operands + 16 fetched bits
 		target_address = int(binary.BigEndian.Uint32([]byte{0, operands & 0x0F, m.fetch(), m.fetch()}))
+	}
+
+	if debug {
+		fmt.Printf("Bits: N=%v, I=%v, X=%v, B=%v, P=%v, E=%v\n", n, i, x, b, p, e)
+		fmt.Printf("TA[b]: 0x%06X\n", target_address)
 	}
 
 	// Addressing type
@@ -294,6 +316,10 @@ func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) error {
 		}
 	case !n && !i: // SIC format
 		operand = target_address
+	}
+
+	if debug {
+		fmt.Printf("Operand: 0x%06X\n", operand)
 	}
 
 	switch opcode {
