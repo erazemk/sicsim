@@ -25,7 +25,7 @@ const (
 )
 
 // Reg returns the value of register reg
-func (m Machine) Reg(reg int) (int, error) {
+func (m *Machine) Reg(reg int) (int, error) {
 	switch reg {
 	case 0:
 		return m.regs.a, nil
@@ -56,6 +56,10 @@ func (m *Machine) SetReg(reg int, val int) error {
 		return fmt.Errorf("not a valid register: %d", reg)
 	}
 
+	if !isWord(val) {
+		return fmt.Errorf("not a valid register value: %d", val)
+	}
+
 	switch reg {
 	case 0:
 		m.regs.a = val
@@ -81,54 +85,55 @@ func (m *Machine) SetReg(reg int, val int) error {
 }
 
 // A returns the value of the A register
-func (m Machine) A() int {
+func (m *Machine) A() int {
 	return m.regs.a
 }
 
 // ALow returns the lowest byte of the A register
-func (m Machine) ALow() byte {
-	low := make([]byte, 4)
-	binary.LittleEndian.PutUint32(low, uint32(m.regs.a))
-	return low[0]
+func (m *Machine) ALow() byte {
+	bytes := make([]byte, 4)
+	num := m.regs.a & 0xFF
+	binary.BigEndian.PutUint32(bytes, uint32(num))
+	return bytes[3]
 }
 
 // X returns the value of the X register
-func (m Machine) X() int {
+func (m *Machine) X() int {
 	return m.regs.x
 }
 
 // L returns the value of the L register
-func (m Machine) L() int {
+func (m *Machine) L() int {
 	return m.regs.l
 }
 
 // B returns the value of the B register
-func (m Machine) B() int {
+func (m *Machine) B() int {
 	return m.regs.b
 }
 
 // S returns the value of the S register
-func (m Machine) S() int {
+func (m *Machine) S() int {
 	return m.regs.s
 }
 
 // T returns the value of the T register
-func (m Machine) T() int {
+func (m *Machine) T() int {
 	return m.regs.t
 }
 
 // F returns the value of the F register
-func (m Machine) F() int {
+func (m *Machine) F() int {
 	return m.regs.f
 }
 
 // PC returns the value of the PC register
-func (m Machine) PC() int {
+func (m *Machine) PC() int {
 	return m.regs.pc
 }
 
 // SW returns the value of the SW register
-func (m Machine) SW() int {
+func (m *Machine) SW() int {
 	return m.regs.sw
 }
 
@@ -141,9 +146,9 @@ func (m *Machine) SetA(val int) {
 
 // SetALow sets the value of lowest byte of the A register
 func (m *Machine) SetALow(val byte) {
-	word := make([]byte, 4)
-	word[0] = val
-	m.regs.a = int(binary.LittleEndian.Uint32(word))
+	bytes := make([]byte, 4)
+	bytes[3] = val
+	m.regs.a = int(binary.BigEndian.Uint32(bytes))
 }
 
 // SetX sets the value of the X register
