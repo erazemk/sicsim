@@ -28,11 +28,7 @@ func (m *Machine) SetByte(addr int, val byte) error {
 // Word returns the word at m[addr..addr+2]
 func (m Machine) Word(addr int) (int, error) {
 	if isAddr(addr) {
-		buf := make([]byte, 4)
-		buf[0] = 0
-		buf[1] = m.mem[addr]
-		buf[2] = m.mem[addr+1]
-		buf[3] = m.mem[addr+2]
+		buf := []byte{0, m.mem[addr], m.mem[addr+1], m.mem[addr+2]}
 		word := int(binary.BigEndian.Uint32(buf))
 		return word, nil
 	}
