@@ -16,15 +16,17 @@ func (m *Machine) fetch() byte {
 func (m *Machine) Execute() {
 	opcode := m.fetch()
 
+	fmt.Printf("Opcode [b]: 0x%02X\n", opcode)
+
 	if m.execF1(opcode) == nil {
 		return
 	}
 
 	operands := m.fetch()
-	op1 := int(operands & 0x0F)
-	op2 := int((operands & 0xF0) >> 4)
+	r1 := int((operands & 0xF0) >> 4)
+	r2 := int(operands & 0x0F)
 
-	if m.execF2(opcode, op1, op2) == nil {
+	if m.execF2(opcode, r1, r2) == nil {
 		return
 	}
 
@@ -36,11 +38,17 @@ func (m *Machine) Execute() {
 		i = true
 	}
 
-	opcode = opcode >> 2
+	// opcode is only 6-bit for SIC/F3/F4 instruction formats
+	opcode = opcode & 0xFC
 
+	fmt.Printf("Opcode [a]: 0x%02X\n", opcode)
+
+	// operands = xbpe bits + part of address/offset
 	if m.execSICF3F4(opcode, operands, n, i) == nil {
 		return
 	}
+
+	// TODO: Execute() should return error if none of the formats were correct
 }
 
 // execF1 tries to execute opcode as format 1
@@ -75,84 +83,129 @@ func (m *Machine) execF2(opcode byte, op1, op2 int) error {
 			return err
 		}
 
-		m.SetReg(op2, val1+val2)
+		if err := m.SetReg(op2, val2+val1); err != nil {
+			return err
+		}
 	case CLEAR:
-		err := m.SetReg(op1, 0)
-
-		if err != nil {
+		if err := m.SetReg(op1, 0); err != nil {
 			return err
 		}
 	case COMPR:
-		r1, err := m.Reg(op1)
+		val1, err := m.Reg(op1)
 
 		if err != nil {
 			return err
 		}
 
-		r2, err := m.Reg(op2)
+		val2, err := m.Reg(op2)
 
 		if err != nil {
 			return err
 		}
 
 		switch {
-		case r1 < r2:
+		case val1 < val2:
 			m.SetSW(LT)
-		case r1 == r2:
+		case val1 == val2:
 			m.SetSW(EQ)
-		case r1 > r2:
+		case val1 > val2:
 			m.SetSW(GT)
 		}
 	case DIVR:
-		err := m.SetReg(op2, op2/op1)
+		val1, err := m.Reg(op1)
 
 		if err != nil {
+			return err
+		}
+
+		val2, err := m.Reg(op2)
+
+		if err != nil {
+			return err
+		}
+
+		if err := m.SetReg(op2, val2/val1); err != nil {
 			return err
 		}
 	case MULR:
-		err := m.SetReg(op2, op2*op1)
+		val1, err := m.Reg(op1)
 
 		if err != nil {
+			return err
+		}
+
+		val2, err := m.Reg(op2)
+
+		if err != nil {
+			return err
+		}
+
+		if err := m.SetReg(op2, val2*val1); err != nil {
 			return err
 		}
 	case RMO:
-		err := m.SetReg(op2, op1)
+		val1, err := m.Reg(op1)
 
 		if err != nil {
+			return err
+		}
+
+		if err := m.SetReg(op2, val1); err != nil {
 			return err
 		}
 	case SHIFTL:
-		err := m.SetReg(op1, op1<<op2)
+		val1, err := m.Reg(op1)
 
 		if err != nil {
+			return err
+		}
+
+		if err := m.SetReg(op1, val1<<op2); err != nil {
 			return err
 		}
 	case SHIFTR:
-		err := m.SetReg(op1, op1>>op2)
+		val1, err := m.Reg(op1)
 
 		if err != nil {
 			return err
 		}
+
+		if err := m.SetReg(op1, val1>>op2); err != nil {
+			return err
+		}
 	case SUBR:
-		err := m.SetReg(op2, op2-op1)
+		val1, err := m.Reg(op1)
 
 		if err != nil {
+			return err
+		}
+
+		val2, err := m.Reg(op2)
+
+		if err != nil {
+			return err
+		}
+
+		if err := m.SetReg(op2, val2-val1); err != nil {
 			return err
 		}
 	case SVC: // Not implemented
 	case TIXR:
-		if !isRegister(op1) {
-			return fmt.Errorf("not a valid register: %d", op1)
+		val1, err := m.Reg(op1)
+
+		if err != nil {
+			return err
 		}
 
 		m.SetX(m.X() + 1)
+		rX := m.X()
 
 		switch {
-		case m.X() < op1:
+		case rX < val1:
 			m.SetSW(LT)
-		case m.X() == op1:
+		case rX == val1:
 			m.SetSW(EQ)
-		case m.X() > op1:
+		case rX > val1:
 			m.SetSW(GT)
 		}
 	default:
@@ -165,59 +218,67 @@ func (m *Machine) execF2(opcode byte, op1, op2 int) error {
 // execSICF3F4 tries to execute opcode either in SIC format, format 3 or format 4
 func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) error {
 	var x, b, p, e bool
-	var addr, offset, operand, target_address int
+	var operand, target_address int
 
-	if ((operands & 0x80) >> 7) == 1 {
+	if (operands & 0x80) == 0x80 {
 		x = true
 	}
 
-	if ((operands & 0x40) >> 6) == 1 {
+	if (operands & 0x40) == 0x40 {
 		b = true
 	}
-	if ((operands & 0x20) >> 5) == 1 {
+
+	if (operands & 0x20) == 0x20 {
 		p = true
 	}
-	if ((operands & 0x10) >> 4) == 1 {
+
+	if (operands & 0x10) == 0x10 {
 		e = true
 	}
 
 	// Differentiate between formats
 	if !(n || i) { // SIC format
-		// Address is 0 + lower 7 bits from operands + 8 new bits, which are fetched
-		addr = int(binary.BigEndian.Uint32([]byte{operands & 0x7F, m.fetch()}))
+		// addr = lower 7 bits from operands + 8 fetched bits
+		target_address = int(binary.BigEndian.Uint32([]byte{0, 0, operands & 0x7F, m.fetch()}))
 	} else if !e { // Format 3
-		// Offset is lower 4 bits from operands + 8 new bits, which are fetched
-		offset = int(binary.BigEndian.Uint32([]byte{operands & 0x0F, m.fetch()}))
+		// offset = lower 4 bits from operands + 8 fetched bits
+		target_address = int(binary.BigEndian.Uint32([]byte{0, 0, operands & 0x0F, m.fetch()}))
 	} else { // Format 4
-		// Address is lower 4 bits from operands + 16 new bits, which are fetched
-		addr = int(binary.BigEndian.Uint32([]byte{operands & 0x0F, m.fetch(), m.fetch()}))
+		// addr = lower 4 bits from operands + 16 fetched bits
+		target_address = int(binary.BigEndian.Uint32([]byte{0, operands & 0x0F, m.fetch(), m.fetch()}))
 	}
 
 	// Addressing type
-	switch {
-	case b && !p: // Base-relative
-		target_address = m.B() + offset
-	case !b && p: // PC-relative
-		target_address = m.PC() + offset
-	case !b && !p: // Direct
-		target_address = addr
-	case b && p: // Disallowed
-		return fmt.Errorf("wrong addressing format")
+	if n || i { // F3 / F4
+		switch {
+		case b && !p: // Base-relative
+			target_address += m.B()
+		case !b && p: // PC-relative
+			target_address += m.PC()
+		case !b && !p: // Direct
+			// No extra action needed
+		case b && p: // Disallowed
+			return fmt.Errorf("wrong addressing format")
+		}
 	}
 
 	if x {
-		target_address = target_address + m.X()
+		if n && i { // Simple addressing
+			target_address += m.X()
+		} else {
+			return fmt.Errorf("invalid addressing")
+		}
 	}
 
 	switch {
 	case n && !i: // Indirect
-		l1, err := m.Word(target_address)
+		lvl1, err := m.Word(target_address)
 
 		if err != nil {
 			return err
 		}
 
-		operand, err = m.Word(l1)
+		operand, err = m.Word(lvl1)
 
 		if err != nil {
 			return err
@@ -260,12 +321,14 @@ func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) error {
 			return err
 		}
 
+		rA := m.A()
+
 		switch {
-		case m.A() < word:
+		case rA < word:
 			m.SetSW(LT)
-		case m.A() == word:
+		case rA == word:
 			m.SetSW(EQ)
-		case m.A() > word:
+		case rA > word:
 			m.SetSW(GT)
 		}
 	case COMPF: // Not implemented
@@ -425,58 +488,40 @@ func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) error {
 		m.SetPC(m.L())
 	case SSK: // Not implemented
 	case STA:
-		err := m.SetWord(operand, m.A())
-
-		if err != nil {
+		if err := m.SetWord(operand, m.A()); err != nil {
 			return err
 		}
 	case STB:
-		err := m.SetWord(operand, m.B())
-
-		if err != nil {
+		if err := m.SetWord(operand, m.B()); err != nil {
 			return err
 		}
 	case STCH:
-		err := m.SetByte(operand, m.ALow())
-
-		if err != nil {
+		if err := m.SetByte(operand, m.ALow()); err != nil {
 			return err
 		}
 	case STF:
-		err := m.SetWord(operand, m.F())
-
-		if err != nil {
+		if err := m.SetWord(operand, m.F()); err != nil {
 			return err
 		}
 	case STI: // Not implemented
 	case STL:
-		err := m.SetWord(operand, m.L())
-
-		if err != nil {
+		if err := m.SetWord(operand, m.L()); err != nil {
 			return err
 		}
 	case STS:
-		err := m.SetWord(operand, m.S())
-
-		if err != nil {
+		if err := m.SetWord(operand, m.S()); err != nil {
 			return err
 		}
 	case STSW:
-		err := m.SetWord(operand, m.SW())
-
-		if err != nil {
+		if err := m.SetWord(operand, m.SW()); err != nil {
 			return err
 		}
 	case STT:
-		err := m.SetWord(operand, m.T())
-
-		if err != nil {
+		if err := m.SetWord(operand, m.T()); err != nil {
 			return err
 		}
 	case STX:
-		err := m.SetWord(operand, m.X())
-
-		if err != nil {
+		if err := m.SetWord(operand, m.X()); err != nil {
 			return err
 		}
 	case SUB:
@@ -507,12 +552,14 @@ func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) error {
 			return err
 		}
 
+		rX := m.X()
+
 		switch {
-		case m.X() < word:
+		case rX < word:
 			m.SetSW(LT)
-		case m.X() == word:
+		case rX == word:
 			m.SetSW(EQ)
-		case m.X() > word:
+		case rX > word:
 			m.SetSW(GT)
 		}
 	case WD:
@@ -522,9 +569,7 @@ func (m *Machine) execSICF3F4(opcode, operands byte, n, i bool) error {
 			return err
 		}
 
-		err = m.WriteDevice(devno, m.ALow())
-
-		if err != nil {
+		if err = m.WriteDevice(devno, m.ALow()); err != nil {
 			return err
 		}
 	default:
