@@ -105,17 +105,15 @@ func (m *Machine) ParseObj(path string) error {
 				fmt.Println("    lc: " + strconv.FormatInt(int64(lc), 10))
 			}
 
-			// 1 byte = 2 chars, 1 word = 3 bytes = 6 chars
-			// len = 9 => 18 chars = 3 words => 3 * 6 chars
-			for i := 0; i < int(codeLen)/3; i++ {
-				word := ParseWord(code[i*6 : i*6+6]) // Send 6 chars at a time
+			for i := 0; i < int(codeLen)*2; i += 2 {
+				bytes := ParseByte(code[i : i+2])
 
 				if debug {
-					fmt.Printf("        word: %06X\n", word)
+					fmt.Printf("        byte: %02X\n", bytes)
 				}
 
-				m.SetWord(lc, word)
-				lc += 3 // Increment lc by 3 bytes each iteration
+				m.SetByte(lc, bytes)
+				lc++
 			}
 		case "M": // Modification
 			offset := line[1:7]
