@@ -172,8 +172,8 @@ func (m *Machine) execF2(opcode, operand byte) (bool, error) {
 // execSICF3F4 tries to execute opcode either in SIC format, format 3 or format 4
 func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 	var extended, indexed bool
-	var immediate, baserelative, pcrelative bool
-	var indirect, sic bool
+	var immediate, baserelative, pcrelative bool // BP bits
+	var indirect, sic bool                       // NI bits
 	var operand int
 
 	// Addressing modes
@@ -215,7 +215,7 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 		operand += m.B()
 	} else if pcrelative {
 		if operand >= 2048 {
-			operand = ^operand + 1
+			operand -= 4096
 		}
 
 		operand += m.PC()
@@ -223,6 +223,18 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 
 	if indexed {
 		operand += m.X()
+	}
+
+	if debug {
+		fmt.Printf("Instruction: 0x%02X (0x%04X)\n", opcode, operand)
+		fmt.Println("Addressing:")
+		fmt.Printf("  SIC: %v\n", sic)
+		fmt.Printf("  indirect: %v\n", indirect)
+		fmt.Printf("  extended: %v\n", extended)
+		fmt.Printf("  indexed: %v\n", indexed)
+		fmt.Printf("  immediate: %v\n", immediate)
+		fmt.Printf("  base relative: %v\n", baserelative)
+		fmt.Printf("  pc relative: %v\n", pcrelative)
 	}
 
 	switch opcode {
@@ -250,7 +262,11 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 	case DIVF:
 		return false, fmt.Errorf("instruction not implemented: %s", "DIVF")
 	case J:
-		addr := m.calcOperand(operand, indirect, immediate)
+		addr := m.calcStoreOperand(operand, indirect)
+
+		if debug {
+			fmt.Printf("Jump addr: 0x%02X\n", addr)
+		}
 
 		// Halt processor
 		if addr == JMPADDR {
@@ -263,19 +279,19 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 		m.SetPC(addr)
 	case JEQ:
 		if m.SW() == EQ {
-			m.SetPC(m.calcOperand(operand, indirect, immediate))
+			m.SetPC(m.calcStoreOperand(operand, indirect))
 		}
 	case JGT:
 		if m.SW() == GT {
-			m.SetPC(m.calcOperand(operand, indirect, immediate))
+			m.SetPC(m.calcStoreOperand(operand, indirect))
 		}
 	case JLT:
 		if m.SW() == LT {
-			m.SetPC(m.calcOperand(operand, indirect, immediate))
+			m.SetPC(m.calcStoreOperand(operand, indirect))
 		}
 	case JSUB:
 		m.SetL(m.PC())
-		m.SetPC(m.calcOperand(operand, indirect, immediate))
+		m.SetPC(m.calcStoreOperand(operand, indirect))
 	case LDA:
 		m.SetA(m.calcOperand(operand, indirect, immediate))
 	case LDB:
