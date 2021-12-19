@@ -75,10 +75,18 @@ func repl(m sim.Machine) {
 
 			fmt.Println(m.Mem(low, high))
 		case "exec", "e":
-			m.Execute()
+			if !m.Halted() {
+				m.Execute()
+			} else {
+				fmt.Println("Finished executing program, stop trying to break things")
+			}
 		case "step", "s":
-			m.Execute()
-			fmt.Println(m.Regs())
+			if !m.Halted() {
+				m.Execute()
+				fmt.Println(m.Regs())
+			} else {
+				fmt.Println("Finished executing program, stop trying to break things")
+			}
 		case "word", "w":
 			addr, err := strconv.Atoi(text[1])
 
@@ -146,11 +154,19 @@ func repl(m sim.Machine) {
 				panic(err)
 			}
 		case "begin", "bt":
-			m.Start()
-			fmt.Println("Started automatic execution")
+			if !m.Halted() {
+				m.Start()
+				fmt.Println("Started automatic execution")
+			} else {
+				fmt.Println("Finished executing program, stop trying to break things")
+			}
 		case "end", "et":
-			m.Stop()
-			fmt.Println("Stopped automatic execution")
+			if !m.Halted() {
+				m.Stop()
+				fmt.Println("Stopped automatic execution")
+			} else {
+				fmt.Println("Finished executing program, stop trying to break things")
+			}
 		default:
 			replHelp()
 		}
