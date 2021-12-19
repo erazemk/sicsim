@@ -47,17 +47,17 @@ func (m *Machine) WriteDevice(id, val byte) error {
 	return m.devs[id].write(val)
 }
 
-func (m *Machine) NewDevice(id byte) (*device, error) {
+func (m *Machine) NewDevice(id byte) error {
 	if m.devs[id] != nil {
-		return m.devs[id], fmt.Errorf("device '%s' already exists", m.devs[id].name)
+		return fmt.Errorf("device '%s' already exists", m.devs[id].name)
 	}
 
 	dev, err := newDevice(id)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	m.devs[id] = dev
-	return dev, nil
+	return nil
 }
