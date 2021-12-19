@@ -14,6 +14,7 @@ type Machine struct {
 	devs   [256](*device)
 	tick   time.Duration
 	ticker *time.Ticker
+	halted bool
 }
 
 // New creates a new machine
@@ -27,6 +28,11 @@ func (m *Machine) New() {
 	if debug {
 		log.Println("Created a new machine")
 	}
+}
+
+// Returns true if execution has halted
+func (m *Machine) Halted() bool {
+	return m.halted
 }
 
 func (m *Machine) TestDevice(id byte) bool {

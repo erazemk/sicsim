@@ -5,6 +5,9 @@ import (
 	"fmt"
 )
 
+// Keeps track of jump addresses to detect loops - halt execution
+var JMPADDR int
+
 // fetch returns a byte from m[PC] and increments PC
 func (m *Machine) fetch() byte {
 	addr := m.PC()
@@ -247,7 +250,17 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 	case DIVF:
 		return false, fmt.Errorf("instruction not implemented: %s", "DIVF")
 	case J:
-		m.SetPC(m.calcOperand(operand, indirect, immediate))
+		addr := m.calcOperand(operand, indirect, immediate)
+
+		// Halt processor
+		if addr == JMPADDR {
+			m.halted = true
+			return true, nil
+		} else {
+			JMPADDR = addr
+		}
+
+		m.SetPC(addr)
 	case JEQ:
 		if m.SW() == EQ {
 			m.SetPC(m.calcOperand(operand, indirect, immediate))

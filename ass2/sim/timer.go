@@ -1,6 +1,9 @@
 package sicsim
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // Start starts executing commands from memory
 func (m *Machine) Start() {
@@ -8,7 +11,14 @@ func (m *Machine) Start() {
 
 	go func() {
 		for range m.ticker.C {
-			m.Execute()
+			if !m.Halted() {
+				m.Execute()
+			} else {
+				m.Stop()
+				fmt.Printf("\n-- Done (executed all instructions) --\n")
+				fmt.Print("> ")
+				return
+			}
 		}
 	}()
 }
@@ -25,8 +35,8 @@ func (m *Machine) IsRunning() bool {
 }
 
 // Speed returns the current ticker speed
-func (m *Machine) Speed() time.Duration {
-	return m.tick
+func (m *Machine) Speed() string {
+	return m.tick.String()
 }
 
 func (m *Machine) SetSpeed(kHz int) {
