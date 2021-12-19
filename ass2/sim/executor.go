@@ -2,6 +2,7 @@ package sicsim
 
 import (
 	"encoding/binary"
+	"fmt"
 )
 
 // fetch returns a byte from m[PC] and increments PC
@@ -12,27 +13,42 @@ func (m *Machine) fetch() byte {
 }
 
 // Execute executes each fetched instruction
-func (m *Machine) Execute() {
+func (m *Machine) Execute() error {
+	var success bool
+	var err error
+
 	opcode := m.fetch()
 
-	if m.execF1(opcode) {
-		return
+	if success, err = m.execF1(opcode); err == nil {
+		if success {
+			return nil
+		}
+	} else {
+		return fmt.Errorf("failed to execute command (format 1): %w", err)
 	}
 
 	operands := m.fetch()
 
-	if m.execF2(opcode, operands) {
-		return
+	if success, err = m.execF2(opcode, operands); err == nil {
+		if success {
+			return nil
+		}
+	} else {
+		return fmt.Errorf("failed to execute command (format 2): %w", err)
 	}
 
 	ni := opcode & 0x03
 	opcode = opcode & 0xFC
 
-	if m.execSICF3F4(opcode, operands, ni) {
-		return
+	if success, err = m.execSICF3F4(opcode, operands, ni); err == nil {
+		if success {
+			return nil
+		}
+	} else {
+		return fmt.Errorf("failed to execute command (format 3): %w", err)
 	}
 
-	// TODO: Execute() should return error if none of the formats were correct
+	return fmt.Errorf("failed to execute command: not a valid SIC command (any format)")
 }
 
 // calcStoreOperand returns the proper operand for store instructions
@@ -61,25 +77,31 @@ func (m *Machine) calcOperand(operand int, indirect, immediate bool) int {
 }
 
 // execF1 tries to execute opcode as format 1
-func (m *Machine) execF1(opcode byte) bool {
+func (m *Machine) execF1(opcode byte) (bool, error) {
 	switch opcode {
-	// case FIX:
-	// case FLOAT:
-	// case HIO:
-	// case NORM:
-	// case SIO:
-	// case TIO:
+	case FIX:
+		return false, fmt.Errorf("instruction not implemented: %s", "FIX")
+	case FLOAT:
+		return false, fmt.Errorf("instruction not implemented: %s", "FLOAT")
+	case HIO:
+		return false, fmt.Errorf("instruction not implemented: %s", "HIO")
+	case NORM:
+		return false, fmt.Errorf("instruction not implemented: %s", "NORM")
+	case SIO:
+		return false, fmt.Errorf("instruction not implemented: %s", "SIO")
+	case TIO:
+		return false, fmt.Errorf("instruction not implemented: %s", "TIO")
 	default:
-		// Not implemented
-		return false
+		// Not a format 1 instruction
+		return false, nil
 	}
 
 	// Currently unreachable
-	//return true
+	// return true, nil
 }
 
 // execF2 tries to execute opcode as format 2
-func (m *Machine) execF2(opcode, operand byte) bool {
+func (m *Machine) execF2(opcode, operand byte) (bool, error) {
 	op1 := int((operand & 0xF0) >> 4)
 	op2 := int(operand & 0x0F)
 
@@ -122,7 +144,8 @@ func (m *Machine) execF2(opcode, operand byte) bool {
 		r1, _ := m.Reg(op1)
 		r2, _ := m.Reg(op2)
 		m.SetReg(op2, r2-r1)
-	// case SVC:
+	case SVC:
+		return false, fmt.Errorf("instruction not implemented: %s", "SVC")
 	case TIXR:
 		r1, _ := m.Reg(op1)
 		m.SetX(m.X() + 1)
@@ -136,19 +159,19 @@ func (m *Machine) execF2(opcode, operand byte) bool {
 			m.SetSW(LT)
 		}
 	default:
-		// Not implemented
-		return false
+		// Not a format 2 instruction
+		return false, nil
 	}
 
-	return true
+	return true, nil
 }
 
 // execSICF3F4 tries to execute opcode either in SIC format, format 3 or format 4
-func (m *Machine) execSICF3F4(opcode, operands, ni byte) bool {
+func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 	var extended, indexed bool
 	var immediate, baserelative, pcrelative bool
 	var indirect, sic bool
-	var target_address, operand int
+	var operand int
 
 	// Addressing modes
 	if ni == 0x00 {
@@ -165,7 +188,7 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) bool {
 		} else if bp == 0x20 {
 			pcrelative = true
 		} else if bp == 0x60 {
-			panic("wrong addressing format")
+			return false, fmt.Errorf("wrong addressing format")
 		}
 
 		if ni == 0x02 {
@@ -202,7 +225,8 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) bool {
 	switch opcode {
 	case ADD:
 		m.SetA(m.A() + m.calcOperand(operand, indirect, immediate))
-	// case ADDF:
+	case ADDF:
+		return false, fmt.Errorf("instruction not implemented: %s", "ADDF")
 	case AND:
 		m.SetA(m.A() & m.calcOperand(operand, indirect, immediate))
 	case COMP:
@@ -216,10 +240,12 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) bool {
 		} else {
 			m.SetSW(LT)
 		}
-	// case COMPF:
+	case COMPF:
+		return false, fmt.Errorf("instruction not implemented: %s", "COMPF")
 	case DIV:
 		m.SetA(m.A() / m.calcOperand(operand, indirect, immediate))
-	// case DIVF:
+	case DIVF:
+		return false, fmt.Errorf("instruction not implemented: %s", "DIVF")
 	case J:
 		m.SetPC(m.calcOperand(operand, indirect, immediate))
 	case JEQ:
@@ -253,10 +279,12 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) bool {
 		m.SetT(m.calcOperand(operand, indirect, immediate))
 	case LDX:
 		m.SetX(m.calcOperand(operand, indirect, immediate))
-	// case LPS:
+	case LPS:
+		return false, fmt.Errorf("instruction not implemented: %s", "LPS")
 	case MUL:
 		m.SetA(m.A() * m.calcOperand(operand, indirect, immediate))
-	// case MULF:
+	case MULF:
+		return false, fmt.Errorf("instruction not implemented: %s", "MULF")
 	case OR:
 		m.SetA(m.A() | m.calcOperand(operand, indirect, immediate))
 	case RD:
@@ -264,7 +292,8 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) bool {
 		m.SetALow(char)
 	case RSUB:
 		m.SetPC(m.L())
-	// case SSK:
+	case SSK:
+		return false, fmt.Errorf("instruction not implemented: %s", "SSK")
 	case STA:
 		m.SetWord(m.calcStoreOperand(operand, indirect), m.A())
 	case STB:
@@ -273,7 +302,8 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) bool {
 		m.SetByte(m.calcStoreOperand(operand, indirect), m.ALow())
 	case STF:
 		m.SetWord(m.calcStoreOperand(operand, indirect), m.F())
-	// case STI:
+	case STI:
+		return false, fmt.Errorf("instruction not implemented: %s", "STI")
 	case STL:
 		m.SetWord(m.calcStoreOperand(operand, indirect), m.L())
 	case STS:
@@ -286,7 +316,8 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) bool {
 		m.SetWord(m.calcStoreOperand(operand, indirect), m.X())
 	case SUB:
 		m.SetA(m.A() - m.calcOperand(operand, indirect, immediate))
-	// case SUBF:
+	case SUBF:
+		return false, fmt.Errorf("instruction not implemented: %s", "SUBF")
 	case TD:
 		m.TestDevice(byte(m.calcOperand(operand, indirect, immediate)))
 	case TIX:
@@ -304,9 +335,9 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) bool {
 	case WD:
 		m.WriteDevice(byte(m.calcOperand(operand, indirect, immediate)), m.ALow())
 	default:
-		// Not implemented
-		return false
+		// Not a format 3, 4, SIC instruction
+		return false, nil
 	}
 
-	return true
+	return true, nil
 }
