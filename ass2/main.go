@@ -14,7 +14,8 @@ import (
 
 func main() {
 	// Flags
-	objFileFlag := getopt.StringLong("input", 'i', "", "Object file to run")
+	objFileFlag := getopt.StringLong("object", 'o', "", "Object file to run")
+	interactiveFlag := getopt.BoolLong("interactive", 'i', "Run interactive programs")
 	debugFlag := getopt.BoolLong("debug", 'd', "Enable debug output")
 	helpFlag := getopt.BoolLong("help", 'h', "Show this text")
 	getopt.Parse()
@@ -30,11 +31,6 @@ func main() {
 	var m sim.Machine
 	m.New()
 
-	// Clear screen
-	scr := exec.Command("clear")
-	scr.Stdout = os.Stdout
-	scr.Run()
-
 	if *objFileFlag == "" {
 		fmt.Println("No object file provided!")
 		help()
@@ -45,10 +41,30 @@ func main() {
 		}
 	}
 
-	header()
-	fmt.Println("(REPL mode)")
-	replHelp()
-	repl(m)
+	if !*interactiveFlag {
+		// Clear screen
+		scr := exec.Command("clear")
+		scr.Stdout = os.Stdout
+		scr.Run()
+
+		header()
+		fmt.Println("(REPL mode)")
+		replHelp()
+		repl(m)
+	} else {
+		m.Start()
+		sc := bufio.NewScanner(os.Stdin)
+
+		for sc.Scan() {
+			if !m.Halted() {
+				for _, char := range sc.Bytes() {
+					m.WriteDevice(1, char)
+				}
+			} else {
+				os.Exit(0)
+			}
+		}
+	}
 }
 
 // Runs the simulator in REPL mode
