@@ -2,6 +2,7 @@ package sicsim
 
 import (
 	"fmt"
+	"os"
 	"time"
 )
 
@@ -15,9 +16,14 @@ func (m *Machine) Start() {
 				m.Execute()
 			} else {
 				m.Stop()
-				fmt.Printf("\n-- Done (executed all instructions) --\n")
-				fmt.Print("> ")
-				return
+
+				if !m.interactive {
+					fmt.Printf("\n-- Done (executed all instructions) --\n")
+					fmt.Print("> ")
+					return
+				} else {
+					os.Exit(0)
+				}
 			}
 		}
 	}()

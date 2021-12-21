@@ -52,6 +52,7 @@ func main() {
 		replHelp()
 		repl(m)
 	} else {
+		m.SetInteractive(*interactiveFlag)
 		m.Start()
 		sc := bufio.NewScanner(os.Stdin)
 

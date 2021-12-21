@@ -9,12 +9,13 @@ import (
 const MAX_ADDRESS = 1048576
 
 type Machine struct {
-	regs   registers
-	mem    [MAX_ADDRESS + 1]byte
-	devs   [256](*device)
-	tick   time.Duration
-	ticker *time.Ticker
-	halted bool
+	regs        registers
+	mem         [MAX_ADDRESS + 1]byte
+	devs        [256](*device)
+	tick        time.Duration
+	ticker      *time.Ticker
+	halted      bool
+	interactive bool
 }
 
 // New creates a new machine
@@ -33,6 +34,10 @@ func (m *Machine) New() {
 // Returns true if execution has halted
 func (m *Machine) Halted() bool {
 	return m.halted
+}
+
+func (m *Machine) SetInteractive(interactive bool) {
+	m.interactive = interactive
 }
 
 func (m *Machine) TestDevice(id byte) bool {
