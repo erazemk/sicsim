@@ -79,6 +79,23 @@ func (m *Machine) calcOperand(operand int, indirect, immediate bool) int {
 	return operand
 }
 
+// calcByteOperand returns the proper byte for non-store instructions
+func (m *Machine) calcByteOperand(operand int, indirect, immediate bool) byte {
+	if immediate {
+		return byte(operand)
+	}
+
+	var op byte
+
+	op, _ = m.Byte(operand)
+
+	if indirect {
+		op, _ = m.Byte(operand)
+	}
+
+	return op
+}
+
 // execF1 tries to execute opcode as format 1
 func (m *Machine) execF1(opcode byte) (bool, error) {
 	switch opcode {
@@ -297,7 +314,7 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 	case LDB:
 		m.SetB(m.calcOperand(operand, indirect, immediate))
 	case LDCH:
-		m.SetALow(byte(m.calcOperand(operand, indirect, immediate)))
+		m.SetALow(m.calcByteOperand(operand, indirect, immediate))
 	case LDF:
 		m.SetF(m.calcOperand(operand, indirect, immediate))
 	case LDL:
@@ -317,7 +334,7 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 	case OR:
 		m.SetA(m.A() | m.calcOperand(operand, indirect, immediate))
 	case RD:
-		char, _ := m.ReadDevice(byte(m.calcOperand(operand, indirect, immediate)))
+		char, _ := m.ReadDevice(m.calcByteOperand(operand, indirect, immediate))
 		m.SetALow(char)
 	case RSUB:
 		m.SetPC(m.L())
@@ -348,7 +365,7 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 	case SUBF:
 		return false, fmt.Errorf("instruction not implemented: %s", "SUBF")
 	case TD:
-		m.TestDevice(byte(m.calcOperand(operand, indirect, immediate)))
+		m.TestDevice(m.calcByteOperand(operand, indirect, immediate))
 	case TIX:
 		m.SetX(m.X() + 1)
 		rX := m.X()
@@ -362,7 +379,7 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 			m.SetSW(LT)
 		}
 	case WD:
-		m.WriteDevice(byte(m.calcOperand(operand, indirect, immediate)), m.ALow())
+		m.WriteDevice(m.calcByteOperand(operand, indirect, immediate), m.ALow())
 	default:
 		// Not a format 3, 4, SIC instruction
 		return false, nil
