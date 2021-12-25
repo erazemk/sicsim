@@ -190,7 +190,8 @@ func help() {
 	fmt.Println()
 	fmt.Println("  -d, --debug                        Print debug info during execution")
 	fmt.Println("  -h, --help                         Print this text")
-	fmt.Println("  -i, --input [/path/to/file.obj]    Object file to execute")
+	fmt.Println("  -n, --non-repl                     Automatically run programs (non-REPL mode)")
+	fmt.Println("  -o, --object [/path/to/file.obj]   Object file to execute")
 	fmt.Println()
 }
 
