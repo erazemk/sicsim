@@ -7,12 +7,14 @@ import (
 
 // Keeps track of jump addresses to detect loops - halt execution
 var JMPADDR int
+var LASTINST byte
 
 // fetch returns a byte from m[PC] and increments PC
 func (m *Machine) fetch() byte {
 	addr := m.PC()
 	m.SetPC(addr + 1)
-	return m.mem[addr]
+	val, _ := m.Byte(addr)
+	return val
 }
 
 // Execute executes each fetched instruction
@@ -24,6 +26,7 @@ func (m *Machine) Execute() error {
 
 	if success, err = m.execF1(opcode); err == nil {
 		if success {
+			LASTINST = opcode
 			return nil
 		}
 	} else {
@@ -34,6 +37,7 @@ func (m *Machine) Execute() error {
 
 	if success, err = m.execF2(opcode, operands); err == nil {
 		if success {
+			LASTINST = opcode
 			return nil
 		}
 	} else {
@@ -45,6 +49,7 @@ func (m *Machine) Execute() error {
 
 	if success, err = m.execSICF3F4(opcode, operands, ni); err == nil {
 		if success {
+			LASTINST = opcode
 			return nil
 		}
 	} else {
@@ -57,8 +62,7 @@ func (m *Machine) Execute() error {
 // calcStoreOperand returns the proper operand for store instructions
 func (m *Machine) calcStoreOperand(addr int, indirect bool) int {
 	if indirect {
-		val, _ := m.Word(addr)
-		return val
+		addr, _ = m.Word(addr)
 	}
 
 	return addr
@@ -82,17 +86,16 @@ func (m *Machine) calcOperand(operand int, indirect, immediate bool) int {
 // calcByteOperand returns the proper byte for non-store instructions
 func (m *Machine) calcByteOperand(operand int, indirect, immediate bool) byte {
 	if immediate {
-		return byte(operand)
+		return byte(operand & 0xFF)
 	}
-
-	var op byte
-
-	op, _ = m.Byte(operand)
 
 	if indirect {
-		op, _ = m.Byte(operand)
+		val, _ := m.Word(operand)
+		op, _ := m.Byte(val)
+		return op
 	}
 
+	op, _ := m.Byte(operand)
 	return op
 }
 
@@ -189,8 +192,8 @@ func (m *Machine) execF2(opcode, operand byte) (bool, error) {
 // execSICF3F4 tries to execute opcode either in SIC format, format 3 or format 4
 func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 	var extended, indexed bool
-	var immediate, baserelative, pcrelative bool // BP bits
-	var indirect, sic bool                       // NI bits
+	var direct, baserelative, pcrelative bool // BP bits
+	var immediate, indirect, sic bool         // NI bits
 	var operand int
 
 	// Addressing modes
@@ -202,7 +205,7 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 		}
 
 		if bp := operands & 0x60; bp == 0x00 {
-			immediate = true
+			direct = true
 		} else if bp == 0x40 {
 			baserelative = true
 		} else if bp == 0x20 {
@@ -213,6 +216,8 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 
 		if ni == 0x02 {
 			indirect = true
+		} else if ni == 0x01 {
+			immediate = true
 		}
 	}
 
@@ -247,6 +252,7 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 		fmt.Println("Addressing:")
 		fmt.Printf("  SIC: %v\n", sic)
 		fmt.Printf("  indirect: %v\n", indirect)
+		fmt.Printf("  direct: %v\n", direct)
 		fmt.Printf("  extended: %v\n", extended)
 		fmt.Printf("  indexed: %v\n", indexed)
 		fmt.Printf("  immediate: %v\n", immediate)
@@ -286,7 +292,7 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 		}
 
 		// Halt processor
-		if addr == JMPADDR {
+		if addr == JMPADDR && LASTINST == J {
 			m.halted = true
 			return true, nil
 		} else {
@@ -308,6 +314,7 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 		}
 	case JSUB:
 		m.SetL(m.PC())
+		m.push(m.PC())
 		m.SetPC(m.calcStoreOperand(operand, indirect))
 	case LDA:
 		m.SetA(m.calcOperand(operand, indirect, immediate))
@@ -334,10 +341,16 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 	case OR:
 		m.SetA(m.A() | m.calcOperand(operand, indirect, immediate))
 	case RD:
-		char, _ := m.ReadDevice(m.calcByteOperand(operand, indirect, immediate))
+		char, err := m.ReadDevice(m.calcByteOperand(operand, indirect, immediate))
+		if err != nil {
+			fmt.Println(err)
+			return false, err
+		}
+
 		m.SetALow(char)
 	case RSUB:
 		m.SetPC(m.L())
+		m.SetL(m.pop())
 	case SSK:
 		return false, fmt.Errorf("instruction not implemented: %s", "SSK")
 	case STA:
@@ -379,7 +392,11 @@ func (m *Machine) execSICF3F4(opcode, operands, ni byte) (bool, error) {
 			m.SetSW(LT)
 		}
 	case WD:
-		m.WriteDevice(m.calcByteOperand(operand, indirect, immediate), m.ALow())
+		err := m.WriteDevice(m.calcByteOperand(operand, indirect, immediate), m.ALow())
+		if err != nil {
+			fmt.Println(err)
+			return false, err
+		}
 	default:
 		// Not a format 3, 4, SIC instruction
 		return false, nil
