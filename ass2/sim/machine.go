@@ -41,14 +41,29 @@ func (m *Machine) SetInteractive(interactive bool) {
 }
 
 func (m *Machine) TestDevice(id byte) bool {
+	if m.devs[id] != nil {
+		return m.devs[id].test()
+	}
+
+	m.NewDevice(id)
 	return m.devs[id].test()
 }
 
 func (m *Machine) ReadDevice(id byte) (byte, error) {
+	if m.devs[id] != nil {
+		return m.devs[id].read()
+	}
+
+	m.NewDevice(id)
 	return m.devs[id].read()
 }
 
 func (m *Machine) WriteDevice(id, val byte) error {
+	if m.devs[id] != nil {
+		return m.devs[id].write(val)
+	}
+
+	m.NewDevice(id)
 	return m.devs[id].write(val)
 }
 
