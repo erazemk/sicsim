@@ -15,7 +15,7 @@ import (
 func main() {
 	// Flags
 	objFileFlag := getopt.StringLong("object", 'o', "", "Object file to run")
-	interactiveFlag := getopt.BoolLong("interactive", 'i', "Run interactive programs")
+	interactiveFlag := getopt.BoolLong("non-repl", 'n', "Automatically run programs (non-REPL mode)")
 	debugFlag := getopt.BoolLong("debug", 'd', "Enable debug output")
 	helpFlag := getopt.BoolLong("help", 'h', "Show this text")
 	getopt.Parse()
@@ -26,6 +26,13 @@ func main() {
 	}
 
 	sim.SetDebug(*debugFlag)
+
+	// Clear screen if running in REPL mode (overwritten by debug mode)
+	if !*interactiveFlag {
+		scr := exec.Command("clear")
+		scr.Stdout = os.Stdout
+		scr.Run()
+	}
 
 	// Create a new machine
 	var m sim.Machine
@@ -41,30 +48,15 @@ func main() {
 		}
 	}
 
-	if !*interactiveFlag {
-		// Clear screen
-		scr := exec.Command("clear")
-		scr.Stdout = os.Stdout
-		scr.Run()
+	m.SetInteractive(*interactiveFlag)
 
+	if !*interactiveFlag {
 		header()
 		fmt.Println("(REPL mode)")
 		replHelp()
 		repl(m)
 	} else {
-		m.SetInteractive(*interactiveFlag)
 		m.Start()
-		sc := bufio.NewScanner(os.Stdin)
-
-		for sc.Scan() {
-			if !m.Halted() {
-				for _, char := range sc.Bytes() {
-					m.WriteDevice(1, char)
-				}
-			} else {
-				os.Exit(0)
-			}
-		}
 	}
 }
 
@@ -172,15 +164,15 @@ func repl(m sim.Machine) {
 			}
 		case "begin", "bt":
 			if !m.Halted() {
-				m.Start()
 				fmt.Println("Started automatic execution")
+				m.Start()
 			} else {
 				fmt.Println("Finished executing program, stop trying to break things")
 			}
 		case "end", "et":
 			if !m.Halted() {
-				m.Stop()
 				fmt.Println("Stopped automatic execution")
+				m.Stop()
 			} else {
 				fmt.Println("Finished executing program, stop trying to break things")
 			}
