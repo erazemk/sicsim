@@ -56,7 +56,7 @@ func newDevice(id byte) (*device, error) {
 
 // test checks if a device is available for reading or writing
 func (d *device) test() bool {
-	return d.reader != nil || d.writer != nil
+	return d.reader != nil && d.writer != nil
 }
 
 // read reads a byte from device
