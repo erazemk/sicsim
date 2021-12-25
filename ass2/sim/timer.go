@@ -10,23 +10,23 @@ import (
 func (m *Machine) Start() {
 	m.ticker = time.NewTicker(m.tick) // Always reset the ticker
 
-	go func() {
-		for range m.ticker.C {
-			if !m.Halted() {
-				m.Execute()
-			} else {
-				m.Stop()
+	// go func() {
+	for range m.ticker.C {
+		if !m.Halted() {
+			m.Execute()
+		} else {
+			m.Stop()
 
-				if !m.interactive {
-					fmt.Printf("\n-- Done (executed all instructions) --\n")
-					fmt.Print("> ")
-					return
-				} else {
-					os.Exit(0)
-				}
+			if !m.interactive {
+				fmt.Printf("\n-- Done (executed all instructions) --\n")
+				//fmt.Print("> ")
+				return
+			} else {
+				os.Exit(0)
 			}
 		}
-	}()
+	}
+	// }()
 }
 
 // Stop stops executing commands and stops the machine's ticker
