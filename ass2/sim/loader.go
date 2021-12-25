@@ -2,165 +2,165 @@ package sicsim
 
 import (
 	"bufio"
-	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"strconv"
 )
 
-// ParseByte parses and returns a byte from two characters
-func ParseByte(text string) byte {
-	bytes, err := hex.DecodeString(text)
+func parseString(r *bufio.Reader, len int) string {
+	buf := make([]rune, len)
 
+	for i := 0; i < len; i++ {
+		char, _, _ := r.ReadRune()
+		buf[i] = char
+	}
+
+	if debug {
+		fmt.Printf("String: %q\n", string(buf))
+	}
+
+	return string(buf)
+}
+
+func parseRune(r *bufio.Reader) rune {
+	char, _, _ := r.ReadRune()
+
+	if debug {
+		fmt.Printf("Char: %q\n", char)
+	}
+
+	return char
+}
+
+func parseWord(r *bufio.Reader) int {
+	buf := make([]rune, 6)
+
+	for i := 0; i < 6; i++ {
+		char, _, _ := r.ReadRune()
+		buf[i] = char
+	}
+
+	word, err := strconv.ParseInt(string(buf), 16, 32)
 	if err != nil {
 		panic(err)
 	}
 
-	return bytes[0]
+	if debug {
+		fmt.Printf("Word (before): %q\n", string(buf))
+		fmt.Printf("Word (after): %06X\n", word)
+	}
+
+	return int(word)
 }
 
-// ParseWord parses and returs a word from six characters
-func ParseWord(text string) int {
-	hex, err := hex.DecodeString(text)
+func parseByte(r *bufio.Reader) byte {
+	buf := make([]rune, 2)
 
+	for i := 0; i < 2; i++ {
+		char, _, _ := r.ReadRune()
+		buf[i] = char
+	}
+
+	bytes, err := strconv.ParseInt(string(buf), 16, 32)
 	if err != nil {
 		panic(err)
 	}
 
-	bytes := make([]byte, 1)
-	bytes = append(bytes, hex[0], hex[1], hex[2])
+	if debug {
+		fmt.Printf("Byte (before): %q\n", string(buf))
+		fmt.Printf("Byte (after): %02X\n", bytes)
+	}
 
-	return int(binary.BigEndian.Uint32(bytes))
+	return byte(bytes)
 }
 
-// ParseObj splits an object file into sections and calls appropriate functions
-func (m *Machine) ParseObj(path string) error {
-	file, err := os.Open(path)
-
+func (m *Machine) ParseObjFile(objFile string) error {
+	file, err := os.Open(objFile)
 	if err != nil {
 		return fmt.Errorf("failed to parse object file: %w", err)
 	}
 
-	scanner := bufio.NewScanner(file)
+	defer file.Close()
 
-	// Split object file, each line/section is a separate element
-	scanner.Split(bufio.ScanLines)
-	var sections []string
-
-	for scanner.Scan() {
-		sections = append(sections, scanner.Text())
-	}
-
-	file.Close()
-
-	var lc int = 0 // Loader Counter - keeps track of current memory location
+	reader := bufio.NewReader(file)
 
 	if debug {
 		fmt.Println("--- Start ParseObj ---")
 	}
 
-	// Parse each section
-	for _, line := range sections {
-		record := line[0:1]
+	rec := parseRune(reader)
 
-		switch record {
-		case "H": // Header
-			progName := line[1:7]
-			codeAddr := ParseWord(line[7:13])
-			codeLen := ParseWord(line[13:19])
-			lc = codeAddr // Start writing commands to memory[codeAddr]
-
-			if err != nil {
-				panic(err)
-			}
-
-			if debug {
-				fmt.Println("[Header]")
-				fmt.Println("    name: " + progName)
-				fmt.Println("    addr: " + printWord(codeAddr))
-				fmt.Println("    len: " + printWord(codeLen))
-				fmt.Println("    lc: " + strconv.FormatInt(int64(lc), 10))
-			}
-		case "E": // End
-			startAddr := ParseWord(line[1:7])
-
-			if debug {
-				fmt.Println("[End]")
-				fmt.Println("    start addr: " + printWord(startAddr))
-				fmt.Println("    lc: " + strconv.FormatInt(int64(lc), 10))
-			}
-
-			m.SetPC(startAddr) // Start executing commands at memory[startAddr]
-		case "T": // Text (code)
-			codeAddr := ParseWord(line[1:7])
-			codeLen := ParseByte(line[7:9])
-			code := line[9:]
-
-			if debug {
-				fmt.Println("[Text]")
-				fmt.Println("    addr: " + printWord(codeAddr))
-				fmt.Println("    len: " + printByte(codeLen))
-				fmt.Println("    code: " + code)
-				fmt.Println("    lc: " + strconv.FormatInt(int64(lc), 10))
-			}
-
-			for i := 0; i < int(codeLen)*2; i += 2 {
-				bytes := ParseByte(code[i : i+2])
-
-				if debug {
-					fmt.Printf("        byte: %02X\n", bytes)
-				}
-
-				m.SetByte(lc, bytes)
-				lc++
-			}
-		case "M": // Modification
-			offset := line[1:7]
-			lineLen := line[7:9]
-			longVer := len(line) > 9
-			var operator, symbolName string
-
-			if longVer {
-				operator = line[9:10]
-				symbolName = line[10:16]
-			}
-
-			if debug {
-				fmt.Println("[Modification]")
-				fmt.Println("    offset: " + offset)
-				fmt.Println("    len: " + lineLen)
-				fmt.Println("    lc: " + strconv.FormatInt(int64(lc), 10))
-
-				if longVer {
-					fmt.Println("    operator: " + operator)
-					fmt.Println("    symbol name: " + symbolName)
-				}
-			}
-		case "D": // Exported symbol
-			name := line[1:7]
-			value := line[7:13]
-			pairs := line[13:]
-
-			if debug {
-				fmt.Println("[Symbol export]")
-				fmt.Println("    name: " + name)
-				fmt.Println("    value: " + value)
-				fmt.Println("    pairs: " + pairs)
-				fmt.Println("    lc: " + strconv.FormatInt(int64(lc), 10))
-			}
-		case "R": // Imported symbol
-			name := line[1:7]
-			otherNames := line[7:]
-
-			if debug {
-				fmt.Println("[Symbol import]")
-				fmt.Println("    name: " + name)
-				fmt.Println("    other names: " + otherNames)
-				fmt.Println("    lc: " + strconv.FormatInt(int64(lc), 10))
-			}
-		}
+	// Header record
+	if rec != 'H' {
+		return fmt.Errorf("failed to parse object file: no header record")
 	}
+
+	progName := parseString(reader, 6)
+	startAddr := parseWord(reader)
+	codeLen := parseWord(reader)
+
+	if debug {
+		fmt.Println("[Header]")
+		fmt.Println("    name: " + progName)
+		fmt.Println("    addr: " + printWord(startAddr))
+		fmt.Println("    len: " + printWord(codeLen))
+	}
+
+	// Seek to a new line and parse the record type
+	reader.ReadLine()
+	rec = parseRune(reader)
+
+	// Text records
+	for rec == 'T' {
+		addr := parseWord(reader)
+		len := parseByte(reader)
+
+		if debug {
+			fmt.Println("[Text]")
+			fmt.Println("    addr: " + printWord(addr))
+			fmt.Println("    len: " + printByte(len))
+		}
+
+		for i := 0; i < int(len); i++ {
+			val := parseByte(reader)
+			m.SetByte(addr, val)
+			addr++
+		}
+
+		reader.ReadLine()
+		rec = parseRune(reader)
+	}
+
+	// Modification records
+	for rec == 'M' {
+		offset := parseWord(reader)
+		len := parseByte(reader)
+
+		// TODO: Implement reading long version
+		// operator := ParseStringReader(reader, 1)
+		// name := ParseStringReader(reader, 6)
+
+		if debug {
+			fmt.Println("[Modification]")
+			fmt.Println("    offset: " + printWord(offset))
+			fmt.Println("    len: " + printByte(len))
+
+			// if long {
+			// 	fmt.Println("    operator: " + operator)
+			// 	fmt.Println("    symbol name: " + name)
+			// }
+		}
+
+		reader.ReadLine()
+		rec = parseRune(reader)
+	}
+
+	// End record
+	if rec != 'E' {
+		return fmt.Errorf("failed to parse object file: no end record")
+	}
+
+	m.SetPC(parseWord(reader))
 
 	if debug {
 		fmt.Println("--- End ParseObj ---")
