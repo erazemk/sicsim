@@ -14,10 +14,9 @@ import (
 
 func main() {
 	// Flags
-	objFileFlag := getopt.StringLong("object", 'o', "", "Object file to run")
-	interactiveFlag := getopt.BoolLong("non-repl", 'n', "Automatically run programs (non-REPL mode)")
 	debugFlag := getopt.BoolLong("debug", 'd', "Enable debug output")
 	helpFlag := getopt.BoolLong("help", 'h', "Show this text")
+	interactiveFlag := getopt.BoolLong("non-repl", 'n', "Automatically run programs (non-REPL mode)")
 	getopt.Parse()
 
 	if *helpFlag {
@@ -26,6 +25,13 @@ func main() {
 	}
 
 	sim.SetDebug(*debugFlag)
+
+	objFile := getopt.Arg(0)
+	if objFile == "" {
+		fmt.Printf("No object file provided!\n\n")
+		help()
+		os.Exit(1)
+	}
 
 	// Clear screen if running in REPL mode (overwritten by debug mode)
 	if !*interactiveFlag {
@@ -37,18 +43,11 @@ func main() {
 	// Create a new machine
 	var m sim.Machine
 	m.New()
-
-	if *objFileFlag == "" {
-		fmt.Println("No object file provided!")
-		help()
-		os.Exit(1)
-	} else {
-		if err := m.ParseObj(*objFileFlag); err != nil {
-			fmt.Println(err)
-		}
-	}
-
 	m.SetInteractive(*interactiveFlag)
+
+	if err := m.ParseObjFile(objFile); err != nil {
+		fmt.Println(err)
+	}
 
 	if !*interactiveFlag {
 		header()
@@ -185,18 +184,14 @@ func repl(m sim.Machine) {
 }
 
 func help() {
+	fmt.Println("Usage: sicsim (-dhn) /path/to/file.obj")
 	fmt.Println()
-	fmt.Println("Usage: sicsim (-h) (-d) [-i /path/to/file.obj]")
-	fmt.Println()
-	fmt.Println("  -d, --debug                        Print debug info during execution")
-	fmt.Println("  -h, --help                         Print this text")
-	fmt.Println("  -n, --non-repl                     Automatically run programs (non-REPL mode)")
-	fmt.Println("  -o, --object [/path/to/file.obj]   Object file to execute")
-	fmt.Println()
+	fmt.Println("  -d, --debug       Print debug info during execution")
+	fmt.Println("  -h, --help        Print this text")
+	fmt.Println("  -n, --non-repl    Automatically run programs (non-REPL mode)")
 }
 
 func replHelp() {
-	fmt.Println()
 	fmt.Println("Usage: [command] (options)")
 	fmt.Println()
 	fmt.Println("  Memory and registers:")
@@ -211,7 +206,6 @@ func replHelp() {
 	fmt.Println("    s, step                  Executes the next instruction and prints register values")
 	fmt.Println("    bt, begin                Starts automatically executing instructions")
 	fmt.Println("    et, end                  Stops automatically executing instructions")
-	fmt.Println()
 }
 
 func header() {
