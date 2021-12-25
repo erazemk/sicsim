@@ -96,9 +96,9 @@ func isRegister(reg int) bool {
 }
 
 func printWord(val int) string {
-	return fmt.Sprintf("0x%[1]X - %[1]d (%[1]b)", val)
+	return fmt.Sprintf("0x%06[1]X - %[1]d (%[1]b)", val)
 }
 
 func printByte(val byte) string {
-	return fmt.Sprintf("0x%[1]X - %[1]d (%[1]b)", val)
+	return fmt.Sprintf("0x%02[1]X - %[1]d (%[1]b)", val)
 }
