@@ -1,13 +1,14 @@
 package main
 
 import (
-	sim "ass2/sim"
 	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+
+	sim "sicsim/sim"
 
 	"github.com/pborman/getopt/v2"
 )
