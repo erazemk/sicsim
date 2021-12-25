@@ -210,13 +210,13 @@ func (m *Machine) SetSW(val int) {
 // Print outputs the machine's register state
 func (m *Machine) Regs() string {
 	return fmt.Sprintf(
-		"A:  %06[1]X (Dec: %[1]d)\n"+
-			"X:  %06[2]X (Dec: %[2]d)\n"+
-			"L:  %06[3]X (Dec: %[3]d)\n"+
-			"B:  %06[4]X (Dec: %[4]d)\n"+
-			"S:  %06[5]X (Dec: %[5]d)\n"+
-			"T:  %06[6]X (Dec: %[6]d)\n"+
-			"F:  %06[7]X (Dec: %[7]d)\n"+
+		"A:  %06[1]X (Dec: %[1]d, Char: %[1]c)\n"+
+			"X:  %06[2]X (Dec: %[2]d, Char: %[2]c)\n"+
+			"L:  %06[3]X (Dec: %[3]d, Char: %[3]c)\n"+
+			"B:  %06[4]X (Dec: %[4]d, Char: %[4]c)\n"+
+			"S:  %06[5]X (Dec: %[5]d, Char: %[5]c)\n"+
+			"T:  %06[6]X (Dec: %[6]d, Char: %[6]c)\n"+
+			"F:  %06[7]X (Dec: %[7]d, Char: %[7]c)\n"+
 			"PC: %06[8]X (Dec: %[8]d)\n"+
 			"SW: %06[9]X (Dec: %[9]d)",
 		m.regs.a, m.regs.x, m.regs.l, m.regs.b, m.regs.s, m.regs.t, m.regs.f,
