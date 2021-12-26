@@ -4,10 +4,10 @@ A simulator for SIC/XE.
 
 ## Usage
 
-1. Build the project: `make` or `go build git.sr.ht/~erazemk/sicsim/cmd/sicsim`
-2. Run sicsim: `./sicsim /path/to/file.obj`
+1. Build the project: `make (sicsim | sicasm)`
+2. Run sicsim or sicasm: `./sicsim /path/to/file.obj`, `./sicasm /path/to/file.asm`
 
-To get usage info run sicsim with the `-h` or `--help` argument.
+To get usage info start the program with the `-h` or `--help` argument.
 
 Example object files can be found under [examples/](examples/).
 
