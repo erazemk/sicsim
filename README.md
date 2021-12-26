@@ -1,10 +1,13 @@
 # SICSIM
+
 A simulator for SIC/XE.
 
-## Usage instructions
-Execute `run.sh` to see usage info.
+## Usage
 
-Alternatively run `go build -o sicsim` to build SICSIM, then run `./sicsim /path/to/file.obj` to start the simulator.
+1. Build the project: `go build -o sicsim`
+2. Run sicsim: `./sicsim /path/to/file.obj`
+
+To get usage info run sicsim with the `-h` or `--help` argument.
 
 Example object files can be found under [examples/](examples/).
 
