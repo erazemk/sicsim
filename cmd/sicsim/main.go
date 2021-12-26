@@ -189,6 +189,7 @@ func help() {
 	fmt.Println("  -d, --debug       Print debug info during execution")
 	fmt.Println("  -h, --help        Print this text")
 	fmt.Println("  -n, --non-repl    Automatically run programs (non-REPL mode)")
+	fmt.Println()
 }
 
 func replHelp() {
