@@ -1,4 +1,4 @@
-package sicsim
+package sim
 
 import (
 	"bufio"

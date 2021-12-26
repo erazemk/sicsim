@@ -8,8 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	sim "sicsim/sim"
-
+	"git.sr.ht/~erazemk/sicsim/sim"
 	"github.com/pborman/getopt/v2"
 )
 
