@@ -1,0 +1,17 @@
+# This ignores all files without an extension (usually just binary files)
+*
+!*.*
+!*/
+
+# Unignore specific files
+!*LICENSE
+!*Makefile
+
+# SIC artifacts
+*.dev
+*.log
+*.lst
+*.obj
+
+# Unignore example object files
+!*/examples/*.obj
