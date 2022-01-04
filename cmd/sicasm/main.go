@@ -56,7 +56,7 @@ func main() {
 		outputFile = *outputFlag
 
 		// Remove extension if present
-		outputFile = outputFile[:strings.LastIndex(inputFile, ".")]
+		outputFile = outputFile[:strings.LastIndex(outputFile, ".")]
 	}
 
 	outputFile += ".obj"
