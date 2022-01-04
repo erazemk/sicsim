@@ -1,245 +1,101 @@
 package asm
 
 import (
+	"bufio"
 	"fmt"
-	"math"
-	"strconv"
+	"os"
 	"strings"
-	"unicode"
 )
 
-type Parser struct {
-	lexer     Lexer
-	mnemonics map[string]Mnemonic
-}
+var isPCset bool
 
-func NewParser() Parser {
-	p := Parser{}
-	p.InitMnemonics()
-	return p
-}
-
-func (p *Parser) ParseLabel() string {
-	if p.lexer.col == 1 && unicode.IsLetter(p.lexer.Peek(0)) {
-		return p.lexer.ReadAlphanumeric()
+// ParseFile reads the contents of the provided file and sends each line to ParseLine
+func (c *Code) ParseFile(path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
 	}
 
-	return ""
-}
+	defer file.Close()
 
-func (p *Parser) ParseMnemonic() Mnemonic {
-	isExtended := p.lexer.AdvanceIf('+')
-	name := p.lexer.ReadAlphanumeric()
-
-	var mnem Mnemonic
-
-	if isExtended {
-		mnem = p.Mnemonic("+" + name)
-	} else {
-		mnem = p.Mnemonic(name)
-	}
-
-	if mnem == nil {
-		// TODO
-		fmt.Println("Error")
-	}
-
-	return mnem
-}
-
-func (p *Parser) ParseSymbol() string {
-	return p.lexer.ReadAlphanumeric()
-}
-
-func (p *Parser) ParseRegister() int {
-	char := p.lexer.Advance()
-	reg := strings.Index("AXLBSTF", string(char))
-
-	if reg < 0 {
-		// TODO
-		fmt.Println("Error")
-	}
-
-	return reg
-}
-
-func (p *Parser) ParseComma() {
-	l := p.lexer
-	l.SkipWhitespace()
-	l.AdvanceChar(',')
-	l.SkipWhitespace()
-}
-
-func (p *Parser) ParseIndexed() bool {
-	l := p.lexer
-	l.SkipWhitespace()
-
-	if l.AdvanceIf(',') {
-		l.SkipWhitespace()
-		l.AdvanceChar('X')
-		return true
-	}
-
-	return false
-}
-
-func (p *Parser) ParseNumber(low, high int) int {
-	var num int
-	l := p.lexer
-
-	if l.Peek(0) == '0' {
-		r := -1
-
-		switch l.Peek(1) {
-		case 'b':
-			r = 2
-		case 'o':
-			r = 8
-		case 'x':
-			r = 16
+	for sc := bufio.NewScanner(file); sc.Scan(); {
+		if err := c.ParseLine(sc.Text()); err != nil {
+			return fmt.Errorf("failed to parse line: %w", err)
 		}
-
-		if r != -1 {
-			l.Advance()
-			l.Advance()
-
-			t, err := strconv.ParseInt(l.ReadDigits(r), r, 32)
-			if err != nil {
-				panic(err)
-			}
-
-			num = int(t)
-		} else {
-			t, err := strconv.ParseInt(l.ReadDigits(10), 10, 32)
-			if err != nil {
-				panic(err)
-			}
-
-			num = int(t)
-		}
-	} else if unicode.IsDigit(l.Peek(0)) {
-		t, err := strconv.ParseInt(l.ReadDigits(10), 10, 32)
-		if err != nil {
-			panic(err)
-		}
-
-		num = int(t)
-	} else {
-		// TODO
-		fmt.Println("Error: Number expected")
 	}
 
-	if unicode.IsLetter(l.Peek(0)) || unicode.IsDigit(l.Peek(0)) {
-		// TODO
-		fmt.Println("Error: Number must not be followed by letter or digit")
-	}
-
-	if num < low || num > high {
-		// TODO
-		fmt.Println("Error: Number our of range")
-	}
-
-	return num
-}
-
-func (p *Parser) ParseData() []byte {
-	l := p.lexer
-
-	if l.AdvanceIf('C') {
-		l.AdvanceChar('\'')
-		return []byte(l.ReadTo('\''))
-	} else if l.AdvanceIf('X') {
-		l.AdvanceChar('\'')
-		s := l.ReadTo('\'')
-		data := make([]byte, len(s)/2)
-
-		for i := 0; i < len(data); i++ {
-			val, err := strconv.ParseInt(s[2*i:2*i+2], 16, 8)
-			if err != nil {
-				panic(err)
-			}
-
-			data[i] = byte(val)
-		}
-
-		return data
-	} else if unicode.IsDigit(l.Peek(0)) {
-		num := p.ParseNumber(0, int(math.Pow(2, 24)-1))
-		data := make([]byte, 3)
-		data[2] = byte(num)
-		data[1] = byte(num >> 8)
-		data[0] = byte(num >> 16)
-
-		return data
-	}
-
-	// TODO: Throw error
-	fmt.Println("Error: Invalid storage specifier")
+	c.length = c.lc
 	return nil
 }
 
-func (p *Parser) ParseInstruction() Node {
-	l := p.lexer
-
-	if l.col == 1 && l.Peek(0) == '.' {
-		return NewComment(l.ReadTo('\n'))
+// ParseLine parses a provided line and sets the code's attributes accordingly
+func (c *Code) ParseLine(line string) error {
+	// Remove comments (only parse line until comment)
+	if strings.ContainsRune(line, '.') {
+		line = line[:strings.IndexRune(line, '.')]
 	}
 
-	label := p.ParseLabel()
-
-	if l.SkipWhitespace() && label == "" {
-		l.Advance()
+	// Empty line (after removing comments)
+	if len(line) == 0 {
 		return nil
 	}
 
-	mnemonic := p.ParseMnemonic()
-	l.SkipWhitespace()
-	node := mnemonic.Parse(p)
-	// TODO
-	// node.SetLabel(label)
-	// node.SetComment(l.ReadTo('\n'))
-	return node
-}
+	// Split command into parts
+	command := strings.Fields(line)
+	if len(command) == 0 { // Only spaces in line
+		return nil
+	}
 
-func (p *Parser) ParseCode() Code {
-	l := p.lexer
-	code := NewCode()
+	node := NewNode(command, c.lc, c.brelative)
 
-	for l.Peek(0) > 0 {
-		for l.Peek(0) > 0 && l.col > 1 {
-			l.ReadTo('\n')
-		}
+	// Check if label already exists in symtab
+	if node.label != "" {
+		if _, exists := c.symtab[node.label]; !exists {
+			c.symtab[node.label] = c.lc
 
-		instruction := p.ParseInstruction()
-
-		if instruction != nil {
-			code.Append(instruction)
+			if debug {
+				fmt.Printf("Added '%s' to symtab at %d\n", node.label, c.symtab[node.label])
+			}
+		} else {
+			return fmt.Errorf("label '%s' already declared", node.label)
 		}
 	}
 
-	return code
-}
+	// Set program name and start address
+	if node.mnemonic == "START" {
+		c.startaddr = node.operand
+		c.name = node.label
 
-func (p *Parser) Parse(input string) Code {
-	p.lexer = NewLexer(input)
-	return p.ParseCode()
-}
+		if len(c.name) > 6 {
+			return fmt.Errorf("program name must not be longer than 6 characters")
+		}
 
-func (p *Parser) Mnemonic(name string) Mnemonic {
-	if p.mnemonics[name] != nil {
-		return p.mnemonics[name]
+		if debug {
+			fmt.Printf("Set start address to '%[1]d (%06[1]X)'\n", c.startaddr)
+		}
 	}
 
+	// Set PC start address based on where the first instruction is
+	if !isPCset && inSlice(node.mnemonic, Instructions) {
+		c.pcstartaddr = c.lc
+		isPCset = true
+
+		if debug {
+			fmt.Printf("Set PC start address to '%[1]d (%06[1]X)' at instruction '%[2]s'\n", c.pcstartaddr, node.mnemonic)
+		}
+	}
+
+	// Set base relative attributes
+	switch node.mnemonic {
+	case "ORG":
+		c.lc = node.operand
+	case "BASE":
+		c.brelative = true
+	case "NOBASE":
+		c.brelative = false
+	}
+
+	c.instructions = append(c.instructions, node)
+	c.lc += node.length
 	return nil
-}
-
-func (p *Parser) PutMnemonic(mnemonic mnemonic) {
-	p.mnemonics[mnemonic.name] = &mnemonic
-}
-
-func (p *Parser) InitMnemonics() {
-	p.mnemonics = make(map[string]Mnemonic)
-
-	// TODO: Add all mnemonics
-	p.PutMnemonic(mnemonic{name: "NOBASE", opcode: 1, hint: "hint", description: "description"})
 }
