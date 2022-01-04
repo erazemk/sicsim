@@ -14,6 +14,7 @@ type Node struct {
 	symbol    string
 	ni        byte
 	indexed   int
+	extended  int
 	brelative bool
 	lc        int
 }
@@ -23,7 +24,17 @@ func NewNode(command []string, lc int, brelative bool) Node {
 	n.brelative = brelative
 	n.lc = lc
 
-	// Check if label exits
+	if debug {
+		fmt.Printf("Command: %v\n", command)
+	}
+
+	// Check if extended (when no label)
+	// if strings.HasPrefix(command[0], "+") {
+	// 	n.extended = 1
+	// 	command[0] = command[0][1:]
+	// }
+
+	// Check if label exists
 	if !inSlice(command[0], Mnemonics) {
 		n.label, command = command[0], command[1:]
 	}
@@ -31,8 +42,18 @@ func NewNode(command []string, lc int, brelative bool) Node {
 	// Parse mnemonic
 	n.mnemonic, command = command[0], command[1:]
 
+	if debug {
+		fmt.Printf("mnemonic: %s, command: %v\n", n.mnemonic, command)
+	}
+
 	// Parse operand and special bits
 	if len(command) > 0 {
+		// Check if extended (when label)
+		// if strings.HasPrefix(n.mnemonic, "+") {
+		// 	n.extended = 1
+		// 	n.mnemonic = n.mnemonic[1:]
+		// }
+
 		n.ParseOperands(command)
 	}
 
@@ -55,7 +76,11 @@ func NewNode(command []string, lc int, brelative bool) Node {
 	} else if inSlice(n.mnemonic, InstructionsF2) {
 		n.length = 2
 	} else if inSlice(n.mnemonic, InstructionsF3) {
-		n.length = 3
+		if n.extended == 0 { // F3
+			n.length = 3
+		} else { // F4
+			n.length = 4
+		}
 	} else {
 		panic(fmt.Sprintf("Invalid mnemonic: %s", n.mnemonic))
 	}
@@ -79,7 +104,7 @@ func (n *Node) Bytes() string {
 	} else if inSlice(n.mnemonic, InstructionsF2) {
 		bytes = fmt.Sprintf("%02X%s", Opcodes[n.mnemonic], Word(n.operand))
 	} else if inSlice(n.mnemonic, InstructionsF3) {
-		var opcode, bp, e, operand int
+		var opcode, bp, operand int
 
 		// Get proper opcode
 		opcode = int(Opcodes[n.mnemonic] | n.ni)
@@ -88,16 +113,13 @@ func (n *Node) Bytes() string {
 			fmt.Printf("Opcode for '%s' is %s (ni=%d)\n", n.mnemonic, Word(opcode), n.ni)
 		}
 
-		// Check if extended
-		e = 0 // For now extended will always be zero
-
 		// Check if using PC relative addressing
 		if rang := n.operand - n.lc - n.length; rang >= -2048 && rang <= 2047 { // PC-relative
 			bp = 0x01
 			operand = rang
 
 			if debug {
-				fmt.Printf("Rang for '%s' is %06X (%d, %d, %d)\n", n.mnemonic, rang, n.operand, n.lc, n.length)
+				fmt.Printf("Range for '%s' is %06X (%d, %d, %d)\n", n.mnemonic, rang, n.operand, n.lc, n.length)
 			}
 		} else { // Direct
 			operand = n.operand
@@ -107,7 +129,12 @@ func (n *Node) Bytes() string {
 			fmt.Printf("Operand for '%s' is %s (before)\n", n.mnemonic, Word(operand))
 		}
 
-		operand = n.indexed<<15 | bp<<13 | e<<12 | operand&0x0FFF
+		if n.extended == 0 { // F3
+			operand = n.indexed<<15 | bp<<13 | n.extended<<12 | operand&0x0FFF
+		} else { // F4
+			// TODO: Fix extended operand
+			operand = n.indexed<<23 | bp<<21 | n.extended<<20 | operand&0x00FFFF
+		}
 
 		if debug {
 			fmt.Printf("Operand for '%s' is %s (after)\n", n.mnemonic, Word(operand))
@@ -254,8 +281,15 @@ func (n *Node) ParseOperands(operands []string) {
 
 func (n *Node) pretty() string {
 	deb := debug
+	var str string
 	SetDebug(false)
-	str := fmt.Sprintf("%s\t%s\t%-6s\t%-6s\t%-6s", Word(n.lc), n.Bytes(), n.label, n.mnemonic, n.symbol)
+
+	if n.symbol == "" { // Operand is int
+		str = fmt.Sprintf("%s\t%-6s\t%-6s\t%-6s\t%-6d", Word(n.lc), n.Bytes(), n.label, n.mnemonic, n.operand)
+	} else { // Operand is symbol
+		str = fmt.Sprintf("%s\t%-6s\t%-6s\t%-6s\t%-6s", Word(n.lc), n.Bytes(), n.label, n.mnemonic, n.symbol)
+	}
+
 	SetDebug(deb)
 	return str
 }
