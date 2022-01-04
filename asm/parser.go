@@ -61,6 +61,21 @@ func (c *Code) ParseLine(line string) error {
 		}
 	}
 
+	// Add EQU directives to symtab
+	if node.mnemonic == "EQU" {
+		if node.label != "" {
+			if _, exists := c.symtab[node.label]; !exists {
+				if node.symbol == "" { // Node has a numeric operand
+					c.symtab[node.label] = node.operand
+				} else { // Node has a string operand (unresolved for now)
+					c.symtab[node.label] = node.symbol
+				}
+			}
+		} else {
+			return fmt.Errorf("cannot set EQU without label")
+		}
+	}
+
 	// Set program name and start address
 	if node.mnemonic == "START" {
 		c.startaddr = node.operand
