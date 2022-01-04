@@ -1,3 +1,7 @@
 # Binaries
 sicsim
 sicasm
+
+# Sicsim artifacts
+examples/asm/*.obj
+*.dev
