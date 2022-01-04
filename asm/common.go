@@ -9,7 +9,6 @@ import (
 
 var Opcodes map[string]byte
 var debug, prettyPrint bool
-var prettyPrintTab []string
 
 // Mnemonics
 var Directive = []string{"NOBASE", "LTORG"}
