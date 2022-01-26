@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"git.sr.ht/~erazemk/sicsim/asm"
+	"github.com/erazemk/sicsim/asm"
 	opt "github.com/pborman/getopt/v2"
 )
 

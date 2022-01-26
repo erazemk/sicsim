@@ -1,4 +1,4 @@
-module git.sr.ht/~erazemk/sicsim
+module github.com/erazemk/sicsim
 
 go 1.17
 
